@@ -21,14 +21,17 @@ must happen strictly in the same order wrote in the program code.
 
 # Summary
 1. [Usage](#Usage)
-1.1 [Input file format](#Input-file-format)
-1.2 [Supported instructions](#Supported-instructions)
-1.3 [Expected output](#Expected-output)
+    1. [Input file format](#Input-file-format)
+    2. [Supported instructions](#Supported-instructions)
+    3. [Expected output](#Expected-output)
 
 # Usage
 
+<a name="Input-file-format"></a>
 ## Input file format
 
+<a name="Supported-instructions"></a>
 ## Supported instructions
 
+<a name="Expected-output"></a>
 ## Expected output

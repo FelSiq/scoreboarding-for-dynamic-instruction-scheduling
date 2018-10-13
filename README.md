@@ -4,7 +4,7 @@ This code implement a very simple simulator of an architecture
 with the scoreboarding technique. An architecture with scoreboar-
 ding has replicas of some functional units for the EXECUTION PHASE
 of the instructions, meaning it can execute several instructions 
-at the same instant. Please note that this is *NOT* a superscalar 
+at the same instant. Please note that this is **NOT** a superscalar 
 architecture, which is a very similar concept also connected with 
 dynamic instruction scheduling.
 
@@ -19,12 +19,13 @@ Note that both techniques may execute instructions out-of-order
 but the COMMIT/WRITE BACK phase (the last phase of every instruction) 
 must happen strictly in the same order wrote in the program code.
 
-# Summary
+# Table of Contents
 1. [Usage](#Usage)
     1. [Input file format](#Input-file-format)
     2. [Supported instructions](#Supported-instructions)
     3. [Expected output](#Expected-output)
 
+<a name="Usage"></a>
 # Usage
 
 <a name="Input-file-format"></a>

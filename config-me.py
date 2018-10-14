@@ -74,7 +74,7 @@ class Config:
 		truction code will be parsed while reading the input
 		assembly code, as it relies on regular expressions. 
 		More information is provided in the README file and 
-		in the commentaries inside "src/read-input-code.py"
+		in the commentaries within "modules/read-input-code.py"
 		module source code.
 
 		As additional information, this script is meant
@@ -91,19 +91,19 @@ class Config:
 		broken.
 		~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	"""
-	instruction_list = [
+	instruction_list = {
 		"add" : {
 			"functional_unit" : "integer_alu",
 			"instruction_type" : "R",
-		}
+		},
 
 		"l.d" : {
 			"functional_unit" : "integer_alu",
 			"instruction_type" : "I",
-		}
+		},
 
 		"mul.d" : {
 			"functional_unit" : "float_mult",
 			"instruction_type" : "R",
-		}
-	]
+		},
+	}

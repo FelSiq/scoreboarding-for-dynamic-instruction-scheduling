@@ -21,12 +21,16 @@ must happen strictly in the same order wrote in the program code.
 
 # Table of Contents
 1. [Usage](#Usage)
-    1. [Input file format](#Input-file-format)
-    2. [Supported instructions](#Supported-instructions)
-    3. [Expected output](#Expected-output)
+    1. [How to run](#How-to-run)
+    2. [Input file format](#Input-file-format)
+    3. [Supported instructions](#Supported-instructions)
+2. [Output details](#Output-details)
 
 <a name="Usage"></a>
 # Usage
+
+<a name="How-to-run"></a>
+## How to run
 
 <a name="Input-file-format"></a>
 ## Input file format
@@ -34,5 +38,5 @@ must happen strictly in the same order wrote in the program code.
 <a name="Supported-instructions"></a>
 ## Supported instructions
 
-<a name="Expected-output"></a>
-## Expected output
+<a name="Output-details"></a>
+# Output details

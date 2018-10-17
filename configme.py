@@ -149,6 +149,6 @@ class Config:
 	WORD_SIZE = 4
 
 	# List here all register implemented in the architecture
-	architecture_register_list = [
+	architecture_register_set = {
 		"F" + str(i) for i in range(32)
-	]
+	}.union({"R" + str(i) for i in range(32)})

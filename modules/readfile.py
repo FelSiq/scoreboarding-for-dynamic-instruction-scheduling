@@ -102,6 +102,25 @@ class ReadFile:
 			"J" : re_readinst_type_j,
 		}
 
+	def __instexception(self, inst_label, program_line_counter, word_size):
+		return inst_label + " (in line " +\
+			str(1 + program_line_counter) + ", PC " + \
+			str(program_line_counter * word_size) +")" 
+
+	def __checkreg(self, register_label, architecture, program_line_counter):
+		"""
+			Check if a register is in the register back
+			of the previously loaded architecture.
+		"""
+		if register_label in architecture["registers"]:
+			return register_label
+
+		raise Exception("Unknown register label \"" + register_label +\
+			"\" in line (" + str(program_line_counter) +\
+			").\nIf this is not an error, please declare" +\
+			" it in \"Config.architecture_register_list\""+\
+			" inside \"configme.py\" module.")
+
 	def load_architecture(self):
 		"""
 			All architecture configuration should be set
@@ -112,7 +131,7 @@ class ReadFile:
 			"functional_units" : {**Config.functional_units},
 			"stage_delay" : {**Config.stage_delay},
 			"word_size" : Config.WORD_SIZE,
-			"registers" : Config.architecture_register_list,
+			"registers" : Config.architecture_register_set,
 		}
 
 		"""
@@ -182,56 +201,134 @@ class ReadFile:
 		# Hold all instructions with some metadata
 		instruction_list = []
 
+		"""
+			~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+			Read assembly code from input file
+			~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+		"""
 		with open(filepath) as f:
 			program_line_counter = -1
 			for instruction_line in f:
-				# Remove commentaries, if any
+				# Remove commentaries in the assembly line code, if any
 				instruction = self.re_match_commentary.sub("", instruction_line)
+
+				# Check if there's a instruction label, because the
+				# current code line can be a blank line or just a commentary
+				# line (already removed).
 				inst_label_match = self.re_get_inst_label.match(instruction)
 
 				if inst_label_match:
+					program_line_counter += 1
+
+					# Get instruction label
 					inst_label = inst_label_match.group(1)
+
+					# Check if instruction is declared at Config.instruction_list
+					# within configme.py module
+					if inst_label not in Config.instruction_list:
+						raise Exception("Unknown instruction \"" +\
+							self.__instexception(inst_label, 
+								program_line_counter, 
+								architecture["word_size"]) +\
+								"\"")
+
+					# Create a pack to tie together the current instruction
+					# with some metadata that will be useful during the
+					# scoreboarding process
 					inst_pack = {
 						"label" : inst_label, 
 						**Config.instruction_list[inst_label],
 					}
-					inst_type = inst_pack["instruction_type"]
 
+					# Check if declared instruction type actually is a MIPS
+					# supported instruction type "R", "I" or "J".
+					inst_type = inst_pack["instruction_type"]
 					if inst_type not in {"R", "I", "J"}:
 						raise Exception("Unknown instruction type \"" +\
-							inst_type + "\". Need be in {\"R\", \"I\", \"J\"}")
+							inst_type + "\". Need be in {\"R\", \"I\", \"J\"}" +\
+							" (in " + self.__instexception(inst_label, \
+								program_line_counter, 
+								architecture["word_size"]) + ")")
 					
-					program_line_counter += 1
+					# Parse the instruction using a proper regular expression
+					# based on it's type.
 					match = self.re_list_matchers[inst_type].match(instruction)
 
 					if match:
-						# Load instruction metadata from configme.py file
+						"""
+							~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+							Load instruction metadata from configme.py file
+							~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+						"""
+						
+						# Check if given instruction functional unit
+						# actually exists in the given architecture
+						if inst_pack["functional_unit"] not \
+							in architecture["functional_units"]:
 
-						if inst_pack["functional_unit"] not in architecture["functional_units"]:
-							raise Exception("Unknown funcional unit \"" + inst_pack["functional_unit"] +\
-								"\" of instruction \"" + inst_label + "\" (in line " +\
-								str(1 + program_line_counter) + ", PC " + \
-								str(program_line_counter * architecture["word_size"]) +")")
+							raise Exception("Unknown funcional unit \"" +\
+								inst_pack["functional_unit"] +\
+								"\" of instruction \"" +\
+								self.__instexception(inst_label, 
+									program_line_counter, 
+									architecture["word_size"]))
 
+						# User can configure additional costs for customs
+						# instructions in Config.custom_inst_additional_delay
+						# within configme.py module
 						if inst_label in Config.custom_inst_additional_delay:
 							inst_pack["additional_cost"] = Config.\
 								custom_inst_additional_delay[inst_label]
 
+							# No negative "additional_cost" allowed for 
+							# any instruction
+							if inst_pack["additional_cost"] <= 0:
+								raise Exception("Instruction \"" +\
+									self.__instexception(inst_label, 
+										program_line_counter, 
+										architecture["word_size"]) +\
+									" has non-positive additional cost (" + \
+									str(inst_pack["additional_cost"]) + ")")
+
 						if inst_type == "R":
-							inst_pack["reg_dest"] = match.group(2)
-							inst_pack["reg_source_j"] = match.group(3)
-							inst_pack["reg_source_k"] = match.group(4)
+							"""
+								~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+								Instruction type R configuration:
+								Inst_label r_dest, r_op_j, r_op_k
+								~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+							"""
+							inst_pack["reg_dest"] = self.__checkreg(match.group(2), 
+								architecture, program_line_counter)
+							inst_pack["reg_source_j"] = self.__checkreg(match.group(3),
+								architecture, program_line_counter)
+							inst_pack["reg_source_k"] = self.__checkreg(match.group(4),
+								architecture, program_line_counter)
 
 						elif inst_type == "I":
-							inst_pack["reg_dest"] = match.group(2)
+							"""
+								~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+								Instruction type I configuration:
+								Inst_label r_dest, imm(r_op)
+								~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+							"""
+							inst_pack["reg_dest"] = self.__checkreg(match.group(2),
+								architecture, program_line_counter)
 							inst_pack["immediate"] = match.group(3)
-							inst_pack["reg_source"] = match.group(4)
-
+							inst_pack["reg_source"] = self.__checkreg(match.group(4), 
+								architecture, program_line_counter)
 						else:
+							"""
+								~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+								Instruction type J configuration:
+								Inst_label jump_label
+								~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+							"""
 							inst_pack["jmp_label"] = match.group(2)
 
+						# Append instruction with its metadata in the
+						# instruction list
 						instruction_list.append(inst_pack)
-					
+		
 		return instruction_list
 
 if __name__ == "__main__":

@@ -107,3 +107,15 @@ class Config:
 			"instruction_type" : "R",
 		},
 	}
+	
+	"""
+		~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+		Delay of scoreboarding non-instruction depen-
+		dent pipeline stages.
+		~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	"""
+	stage_delay = {
+		"issue" : 1,
+		"read_operands" : 1,
+		"write_result" : 1,
+	}

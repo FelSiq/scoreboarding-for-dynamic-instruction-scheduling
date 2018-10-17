@@ -39,7 +39,7 @@ class Scoreboard:
 		self.func_unit_status = None
 		self.reg_res_status = None
 		self.inst_status = None
-		self.instruction_size = 0
+		self.word_size = 0
 		self.program_size = 0
 		self.DONE_LABEL = "done"
 
@@ -62,16 +62,17 @@ class Scoreboard:
 			reg : None for reg in architecture["registers"]
 		}
 
-		self.instruction_size = architecture["instruction_size"]
+		# MIPS standard: 32 bits
+		self.word_size = architecture["word_size"]
 
 	def load_instructions(instructions):
-		if self.instruction_size <= 0:
+		if self.word_size <= 0:
 			raise UserWarning("Instruction size must be >= 1.",
 				"Use \"Scoreboard.load_architecture\"",
 				"to configure it correctly.")
 
 		self.inst_status = {
-			(self.instruction_size * inst_id) : {
+			(self.word_size * inst_id) : {
 				"issue" : None,
 				"read_operand" : None,
 				"exec_completed" : None,
@@ -79,6 +80,7 @@ class Scoreboard:
 			} for inst_id in len(instructions)
 		}
 
+		# #_of_Instructions * word_size
 		self.program_size = max(self.inst_status)
 
 	def check_inst_ready(instruction_pack):
@@ -122,8 +124,9 @@ class Scoreboard:
 					inst_in_execution.pop(inst)
 					# Move PC if needed
 					if pc < self.program_size:
-						pc += self.instruction_size
-						inst_in_execution[pc] = produce_inst_pack(pc)
+						pc += self.word_size
+						inst_in_execution[pc] =\
+							self.produce_inst_pack(pc)
 
 		# Produce final output
 		ans = {

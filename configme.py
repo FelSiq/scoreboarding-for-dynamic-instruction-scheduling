@@ -76,34 +76,31 @@ class Config:
 		More information is provided in the README file and 
 		in the commentaries within "modules/read-input-code.py"
 		module source code.
-
-		As additional information, this script is meant
-		to be entirely case-insensitive, so you don't need
-		to consider differences between "Add" and "add".
-		Please note that Python allows you to create both
-		UPPER-CASED and lower-cased dictionary keys represen-
-		ting different values, so keep in mind that this can 
-		lead to "undefined behavior" during the program exe-
-		cution, and by "undefined" I meant "whatever I will 
-		consider the best way to work this 'anomally' around 
-		when coding the main module". I suggest you to not 
-		try breaking this script unless you want to see it
-		broken.
 		~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	"""
 	instruction_list = {
-		"add" : {
-			"functional_unit" : "integer_alu",
-			"instruction_type" : "R",
-		},
-
-		"l.d" : {
+		"L.D" : {
 			"functional_unit" : "integer_alu",
 			"instruction_type" : "I",
 		},
 
-		"mul.d" : {
+		"MUL.D" : {
 			"functional_unit" : "float_mult",
+			"instruction_type" : "R",
+		},
+
+		"DIV.D" : {
+			"functional_unit" : "float_div",
+			"instruction_type" : "R",
+		},
+
+		"ADD.D" : {
+			"functional_unit" : "float_add_sub",
+			"instruction_type" : "R",
+		},
+
+		"SUB.D" : {
+			"functional_unit" : "float_add_sub",
 			"instruction_type" : "R",
 		},
 	}
@@ -112,6 +109,11 @@ class Config:
 		~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 		Delay of scoreboarding non-instruction depen-
 		dent pipeline stages.
+
+		Using non-positive values here is illegal.
+
+		format:
+		<PIPELINE_STAGE> : int(STAGE_COST_IN_CLOCKS)
 		~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	"""
 	stage_delay = {
@@ -119,3 +121,34 @@ class Config:
 		"read_operands" : 1,
 		"write_result" : 1,
 	}
+
+	"""
+		~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+		Here you can set ADDITIONAL clock delay to cus-
+		tom instructions. This delay will be ADDED DI-
+		RECLTY TO THE FUNCTIONAL UNIT that it uses 
+		(it DOES NOT OVERRIDE IT!!). 
+
+		So, if you set 1 additional (clock) delay to
+		the "L.D" instruction which uses, say, the fun-
+		ctional unit "integer_alu" which have 1 clock
+		delay too, then each execution os "L.D" instru-
+		ction will cost a total of 1 + 1 = 2 clock cycles.
+
+		Using non-positive values here is illegal.
+
+		format:
+		<INSTRUCTION_LABEL> : int(ADDITIONAL_CLOCK_CYCLES_COST)
+		~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	"""
+	custom_inst_additional_delay = {
+		"" : 0,
+	}
+
+	# Size, in bytes, of a single word size
+	WORD_SIZE = 4
+
+	# List here all register implemented in the architecture
+	architecture_register_list = [
+		"F" + str(i) for i in range(32)
+	]

@@ -42,6 +42,13 @@ class Scoreboard:
 		self.word_size = 0
 		self.program_size = 0
 		self.DONE_LABEL = "done"
+		self.PIPELINE_STAGES = [
+			"issue", 
+			"read_operands", 
+			"execution", 
+			"write_result"
+		]
+		self.global_clock_timer = 0
 
 	def load_architecture(architecture):
 		self.func_unit_status = {
@@ -55,12 +62,17 @@ class Scoreboard:
 				"q_k": [],
 				"r_j": [],
 				"r_k": [],
+				"update_timers": [],
 			} for func_unit in architecture["functional_units"]
 		}
 
 		self.reg_res_status = {
 			reg : None for reg in architecture["registers"]
 		}
+
+		self.stage_costs = architecture["stage_costs"]
+
+		self.functional_units = architecture["functional_units"]
 
 		# MIPS standard: 32 bits
 		self.word_size = architecture["word_size"]
@@ -71,62 +83,199 @@ class Scoreboard:
 				"Use \"Scoreboard.load_architecture\"",
 				"to configure it correctly.")
 
+		# Identify the instructions by the PC
 		self.inst_status = {
 			(self.word_size * inst_id) : {
-				"issue" : None,
-				"read_operand" : None,
-				"exec_completed" : None,
-				"write_result" : None,
+				stage_label : None
+				for stage_label in self.PIPELINE_STAGES
 			} for inst_id in len(instructions)
 		}
 
-		# #_of_Instructions * word_size
-		self.program_size = max(self.inst_status)
+		# program_size = #_of_Instructions * word_size
+		self.program_size = max(self.inst_status) + self.word_size
 
-	def check_inst_ready(instruction_pack):
-		pass
+		# Keep pointer to instruction list
+		self.instruction_list = instructions
 
-	def bookkeep(instruction_pack):
-		pass
+	def __check_inst_ready(self, cur_inst_pc, cur_inst_stage):
+		# Take into account scoreboarding wait tests +
+		# clock costs and global clock counter
+		...
+		... self.architecture["stage_costs"][cur_inst_stage] +\
+		... additional_cost
+		...
 
-	def produce_inst_pack(pc):
-		pass
+	def __update_counters(self, 
+		cur_inst_pc, 
+		cur_inst_stage, 
+		cur_min_pc, 
+		cur_max_pc):
 
-	def run():
+		if cur_inst_stage == self.PIPELINE_STAGES[-1]:
+			cur_inst_stage = None
+
+			# Move program counter window, if needed
+			if cur_inst_pc == cur_max_pc and \
+				cur_max_pc < self.program_size:
+				cur_max_pc += self.word_size
+
+			elif cur_inst_pc == cur_min_pc:
+				cur_min_pc += self.word_size
+		else:
+			# Set the current instruction state to
+			# the next pipeline stage
+			cur_inst_stage = self.PIPELINE_STAGES[1 +\
+				self.PIPELINE_STAGES.index(cur_inst_stage)]
+
+		return cur_inst_stage, cur_min_pc, cur_max_pc
+
+	def __bookkeep(self, 
+		cur_inst_pc, 
+		cur_inst_stage, 
+		cur_min_pc, 
+		cur_max_pc):
+
+		# Extract current instruction metadata
+		cur_inst_metadata = self.instruction_list[\
+			cur_inst_pc // self.word_size]
+		cur_inst_label = cur_inst_metadata["label"]
+		cur_inst_func_unit = cur_inst_metadata["functional_unit"]
+		cur_inst_type = cur_inst_metadata["instruction_type"]
+		cur_func_unit_status = self.funct_unit_status[cur_inst_func_unit]
+
+		cur_inst_f_i = None
+		cur_inst_f_j = None
+		cur_inst_f_k = None
+		cur_inst_q_j = None
+		cur_inst_q_k = None
+		cur_inst_r_j = None
+		cur_inst_r_k = None
+		...
+
+		stage_cost = 0
+		if cur_inst_stage in self.stage_costs:
+			stage_cost += self.stage_costs[cur_inst_stage]
+
+		# Bookkeep based on the current instruction
+		# pipeline stage
+		if cur_inst_stage == "issue":
+			"""
+				~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+				Pipeline "Issue" stage
+				~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+			"""
+			cur_func_unit_status["busy"].append(True)
+			cur_func_unit_status["op"].append(cur_inst_pc)
+			cur_func_unit_status["f_i"].append(cur_inst_f_i)
+			cur_func_unit_status["f_j"].append(cur_inst_f_j)
+			cur_func_unit_status["f_k"].append(cur_inst_f_k)
+			cur_func_unit_status["q_j"].append(cur_inst_q_j)
+			cur_func_unit_status["q_k"].append(cur_inst_q_k)
+			cur_func_unit_status["r_j"].append(cur_inst_r_j)
+			cur_func_unit_status["r_k"].append(cur_inst_r_k)
+			self.reg_res_status[cur_inst_f_i].append(cur_inst_func_unit)
+
+		elif cur_inst_stage == "read_operands":
+			"""
+				~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+				Pipeline "Read Operands" stage
+				~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+			"""
+			cur_func_unit_status["r_j"].append(False)
+			cur_func_unit_status["r_k"].append(False)
+			cur_func_unit_status["q_j"].append(0)
+			cur_func_unit_status["q_k"].append(0)
+
+		elif cur_inst_stage == "execution":
+			"""
+				~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+				Pipeline "Execution" stage
+				~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+			"""
+			stage_cost += self.functional_units[cur_inst_func_unit]["clock_cycles"]
+			if "additional_cost" in cur_inst_metadata:
+				stage_cost += cur_inst_metadata["additional_cost"]
+
+		else:
+			"""
+				~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+				Pipeline "Write Result" stage
+				~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+			"""
+			...
+			pass
+
+		# Mark the current clock cycle in the
+		# instruction status
+
+		total_cost = self.global_clock_timer + stage_cost
+		self.inst_states[cur_inst_stage] = total_cost
+		cur_func_unit_status["update_timers"].append(total_cost)
+		
+		# Check if instruction was completed
+		return self.__update_counters(cur
+			cur_inst_pc, 
+			cur_inst_stage, 
+			cur_min_pc, 
+			cur_max_pc)
+
+	def run(self):
+		# Check if user called "load_architecture" method before
 		if self.func_unit_status is None or \
 			self.reg_res_status is None:
 			raise UserWarning("Can't find architecture information.",
 				"Please use \"Scoreboard.load_architecture\"",
 				"to configure it.")
 
+		# Check if user called "load_instructions" method before
 		if self.inst_status is None:
 			raise UserWarning("Can't find input instruction list.",
 				"Please use \"Scoreboard.load_instructions\"",
 				"to configure it.")
 
-		inst_in_execution = OrderedDict()
-		
-		pc = 0
-		# For each instruction between the not completed
-		# former and the most recently one dispatched...
-		for inst in inst_in_execution:
-			# Check the wait conditions of the current stage
-			# of the current instruction
-			ready = self.check_inst_ready(inst_in_exectuion[inst])
-				
-			# If ready, proceed to the next stage
-			if ready:
-				self.bookkeep(inst_in_execution[inst])
+		# Keep track of the current pipeline stage of
+		# each dispatched & not completed instruction, in order
+		# to speed up the code execution
+		inst_cur_stage = {}
 
-				# Check if current instruction is done
-				# (passed by "Write Result" stage
-				if inst_in_execution[inst]["stage"] == self.DONE_LABEL:
-					inst_in_execution.pop(inst)
-					# Move PC if needed
-					if pc < self.program_size:
-						pc += self.word_size
-						inst_in_execution[pc] =\
-							self.produce_inst_pack(pc)
+		# Some auxiliary constants to clean up & speed up the code
+		LAST_PIPELINE_STAGE = self.PIPELINE_STAGES[-1]
+		FIRST_PIPELINE_STAGE = self.PIPELINE_STAGES[0]
+
+		# Dispatched & not completed instruction window
+		cur_min_pc = 0
+		cur_max_pc = 0
+
+		while cur_min_pc < self.program_size:
+			self.global_clock_timer += 1
+
+			# For each instruction between the not completed
+			# former and the most recently one dispatched...
+			for cur_inst_pc in range(cur_min_pc, cur_max_pc + self.word_size):
+				# Check the wait conditions of the current stage
+				# of the current instruction
+				if self.inst_status[cur_inst_id][LAST_PIPELINE_STAGE] is not None:
+
+					# Keep track of the current pipeline stage of
+					# each active (dispatched + not completed) instruction
+					if cur_inst_pc not in inst_cut_stage:
+						inst_cur_stage[cur_inst_pc] = FIRST_PIPELINE_STAGE
+					cur_inst_stage = inst_cur_stage[cur_inst_pc]
+
+					# If ready, proceed to the next stage
+					if self.__check_inst_ready(cur_inst_pc, cur_inst_stage):
+						new_inst_stage, cur_max_pc, cur_min_pc = \
+							self.__bookkeep(\
+								cur_inst_pc, 
+								cur_inst_stage,
+								cur_min_pac, 
+								cur_max_pc)
+
+						# Update current instruction new pipeline stage
+						if new_inst_stage:
+							inst_cur_stage[cur_inst_pc] = new_inst_stage
+						else:
+							inst_cur_stage.pop(cur_inst_pc)
 
 		# Produce final output
 		ans = {

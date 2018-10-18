@@ -117,6 +117,9 @@ class Scoreboard:
 		cur_inst_label = cur_inst_metadata["label"]
 		cur_inst_func_unit = cur_inst_metadata["functional_unit"]
 
+		cur_inst_f_i = None
+		...
+
 		if cur_inst_stage == "issue":
 			"""
 				~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -151,7 +154,18 @@ class Scoreboard:
 				Pipeline "Write Result" stage
 				~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 			"""
-			...
+			for loop_func_unit_label in self.func_unit_status:
+				loop_cur_func_unit = self.func_unit_status[loop_func_unit_label]
+
+				if loop_cur_func_unit["f_j"][-1] == cur_inst_f_i and\
+					not loop_cur_func_unit["r_j"][-1]:
+					return False
+
+				if loop_cur_func_unit["f_k"][-1] == cur_inst_f_i and\
+					not loop_cur_func_unit["r_k"][-1]:
+					return False
+
+			return True
 
 		# Return False by default
 		return False

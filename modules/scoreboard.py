@@ -100,10 +100,61 @@ class Scoreboard:
 	def __check_inst_ready(self, cur_inst_pc, cur_inst_stage):
 		# Take into account scoreboarding wait tests +
 		# clock costs and global clock counter
-		...
-		... self.architecture["stage_costs"][cur_inst_stage] +\
-		... additional_cost
-		...
+
+		cur_inst_stage_cost = self.architecture\
+			["stage_costs"][cur_inst_stage] + additional_cost
+
+		# Check if current global clock counter already
+		# satisfies current instruction pipeline stage cost
+		if cur_inst_stage_cost < self.global_clock_timer:
+			# Pipeline stage of this instruction not
+			# ready yet, return False
+			return False
+
+		# Extract some metadata from the current instruction
+		cur_inst_metadata = self.instruction_list[\
+			cur_inst_pc // self.word_size]
+		cur_inst_label = cur_inst_metadata["label"]
+		cur_inst_func_unit = cur_inst_metadata["functional_unit"]
+
+		if cur_inst_stage == "issue":
+			"""
+				~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+				Pipeline "Issue" stage
+				~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+			"""
+			if not self.func_unit_status[cur_inst_func_unit]["busy"] and\
+				not self.reg_res_status[cur_inst_reg_dest]:
+				return True
+
+		elif cur_inst_stage == "read_operands":
+			"""
+				~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+				Pipeline "Read Operands" stage
+				~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+			"""
+			if self.func_unit_status[cur_inst_func_unit]["r_j"] and \
+				self.func_unit_status[cur_inst_func_unit]["r_k"]:
+				return True
+
+		elif cur_inst_stage == "execution":
+			"""
+				~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+				Pipeline "Execution" stage
+				~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+			"""
+			return True
+
+		else:
+			"""
+				~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+				Pipeline "Write Result" stage
+				~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+			"""
+			...
+
+		# Return False by default
+		return False
 
 	def __update_counters(self, 
 		cur_inst_pc, 
@@ -153,6 +204,8 @@ class Scoreboard:
 		...
 
 		stage_cost = 0
+
+		# Add basic stage cost
 		if cur_inst_stage in self.stage_costs:
 			stage_cost += self.stage_costs[cur_inst_stage]
 
@@ -192,7 +245,10 @@ class Scoreboard:
 				Pipeline "Execution" stage
 				~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 			"""
+			# Add cost from the functional unit execution delay
 			stage_cost += self.functional_units[cur_inst_func_unit]["clock_cycles"]
+
+			# Check if current instruction has an custom additional cost
 			if "additional_cost" in cur_inst_metadata:
 				stage_cost += cur_inst_metadata["additional_cost"]
 
@@ -202,18 +258,39 @@ class Scoreboard:
 				Pipeline "Write Result" stage
 				~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 			"""
-			...
-			pass
+			# Copying this code line because "Write Result" stage
+			# demands this calculation sooner
+			total_cost = self.global_clock_timer + stage_cost
 
-		# Mark the current clock cycle in the
+			# For all functional units waiting for the
+			# current functional unit finalize for any of
+			# the operand register, set the ready flags to true
+			for loop_func_unit_label in self.func_unit_status:
+				loop_cur_func_unit = self.func_unit_status[loop_func_unit_label]
+
+				if loop_cur_func_unit["q_k"][-1] == cur_func_unit:
+					loop_cur_func_unit["r_k"].append(True)
+
+				if loop_cur_func_unit["q_j"][-1] == cur_func_unit:
+					loop_cur_func_unit["r_j"].append(True)
+
+				loop_cur_func_unit["update_timers"].append(total_cost)
+
+			self.reg_res_status[cur_inst_f_i].append(0)
+			cur_func_unit_status["busy"].append(False)
+
+		# Mark the current clock cycle plus stage cost in the
 		# instruction status
-
 		total_cost = self.global_clock_timer + stage_cost
 		self.inst_states[cur_inst_stage] = total_cost
+
+		# Keep track of which clock corresponds to
+		# the current change in order to print corre-
+		# ctly after process ends
 		cur_func_unit_status["update_timers"].append(total_cost)
 		
 		# Check if instruction was completed
-		return self.__update_counters(cur
+		return self.__update_counters(
 			cur_inst_pc, 
 			cur_inst_stage, 
 			cur_min_pc, 

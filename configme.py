@@ -45,7 +45,7 @@ class Config:
 
 	functional_units = {
 		"integer_alu" : {"quantity" : 1, "clock_cycles" : 1},
-		"float_add_sub" : {"quantity" : 1, "clock_cycles" : 1},
+		"float_add_sub" : {"quantity" : 1, "clock_cycles" : 2},
 		"float_mult" : {"quantity" : 2, "clock_cycles" : 10},
 		"float_div" : {"quantity" : 1, "clock_cycles" : 40},
 	}

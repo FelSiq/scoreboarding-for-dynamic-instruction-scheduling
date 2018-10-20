@@ -1,7 +1,7 @@
-# Don't forget to do your custom configuration at configme.py module!
-L.D F6,34(R2) # Type I MIPS standard instruction format
+# Don't forget customize your configuration at "configme.py" module!
+L.D F6,34(R2) # MIPS standard type "I" instruction format
 L.D F2,45(R3)
-MUL.D F0, F2, F4 # Type R MIPS standar instruction format
+MUL.D F0, F2, F4 # MIPS standard type "R" instruction format
 SUB.D F8, F6, F2
 DIV.D F10, F0, F6
 ADD.D F6, F8, F2

@@ -150,6 +150,15 @@ class Scoreboard:
 				Pipeline "Issue" stage
 				~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 			"""
+
+			# Check if the current functional unit status was 
+			# not updated this same clock
+			if self.func_unit_status[cur_inst_func_unit]["update_timers"][-1]["clock"]\
+				== self.global_clock_timer:
+				return False
+
+			# Do the same checking with the destiny register here...
+
 			cur_inst_reg_dest = cur_inst_metadata["reg_dest"]
 			if not self.func_unit_status[cur_inst_func_unit]["busy"][-1] and\
 				not self.reg_res_status[cur_inst_reg_dest][-1]:
@@ -161,6 +170,13 @@ class Scoreboard:
 				Pipeline "Read Operands" stage
 				~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 			"""
+
+			# Check if the current functional unit status was 
+			# not updated this same clock
+			if self.func_unit_status[cur_inst_func_unit]["update_timers"][-1]["clock"]\
+				== self.global_clock_timer:
+				return False
+
 			if self.func_unit_status[cur_inst_func_unit]["r_j"][-1] and \
 				self.func_unit_status[cur_inst_func_unit]["r_k"][-1]:
 				return True
@@ -180,6 +196,8 @@ class Scoreboard:
 				~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 			"""
 			cur_inst_f_i = self.func_unit_status[cur_inst_func_unit]["f_i"][-1]
+
+			# Am I missing something right here??
 
 			for loop_func_unit_label in self.func_unit_status:
 				loop_cur_func_unit = self.func_unit_status[loop_func_unit_label]
@@ -290,6 +308,7 @@ class Scoreboard:
 				"q_k", "r_j", "r_k"
 			})
 			changed_register_set.update({issue_pack["f_i"]})
+
 		elif cur_inst_stage == "read_operands":
 			"""
 				~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -301,6 +320,7 @@ class Scoreboard:
 			cur_func_unit_status["q_j"].append(0)
 			cur_func_unit_status["q_k"].append(0)
 			changed_field_set.update({"r_j", "r_k", "q_j", "q_k"})
+
 		elif cur_inst_stage == "execution":
 			"""
 				~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

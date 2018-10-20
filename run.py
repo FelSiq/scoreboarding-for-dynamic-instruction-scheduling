@@ -28,5 +28,12 @@ if __name__ == "__main__":
 
 	ans = sc.run()
 	
+	print_order = ["issue", "read_operands",
+		"execution", "write_result"]
 
-	print(ans)
+	inst_status = ans["inst_status"]
+	for pc in sorted(list(inst_status.keys())):
+		print(pc, end="\t:\t")
+		for stage_id in range(len(print_order)):
+			print(inst_status[pc][print_order[stage_id]], end="\t")
+		print()

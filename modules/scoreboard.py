@@ -48,36 +48,39 @@ class Scoreboard:
 			"execution", 
 			"write_result"
 		]
+
 		self.global_clock_timer = 0
 
-	def load_architecture(architecture):
+	def load_architecture(self, architecture):
 		self.func_unit_status = {
 			func_unit : {
-				"busy" : [], 
-				"op": [],
-				"f_i": [],
-				"f_j": [],
-				"f_k": [],
-				"q_j": [],
-				"q_k": [],
-				"r_j": [],
-				"r_k": [],
-				"update_timers": [],
+				"busy" : [False], 
+				"op": [-1],
+				"f_i": [None],
+				"f_j": [None],
+				"f_k": [None],
+				"q_j": [None],
+				"q_k": [None],
+				"r_j": [True],
+				"r_k": [True],
+				"update_timers": [-1],
 			} for func_unit in architecture["functional_units"]
 		}
 
 		self.reg_res_status = {
-			reg : None for reg in architecture["registers"]
+			reg : [0] for reg in architecture["registers"]
 		}
 
-		self.stage_costs = architecture["stage_costs"]
+		# Keep a pointer to the dictionary delay of each pipeline stage
+		self.stage_delay = architecture["stage_delay"]
 
+		# Keep a pointer to the functional unit list
 		self.functional_units = architecture["functional_units"]
 
 		# MIPS standard: 32 bits
 		self.word_size = architecture["word_size"]
 
-	def load_instructions(instructions):
+	def load_instructions(self, instructions):
 		if self.word_size <= 0:
 			raise UserWarning("Instruction size must be >= 1.",
 				"Use \"Scoreboard.load_architecture\"",
@@ -88,7 +91,7 @@ class Scoreboard:
 			(self.word_size * inst_id) : {
 				stage_label : None
 				for stage_label in self.PIPELINE_STAGES
-			} for inst_id in len(instructions)
+			} for inst_id in range(len(instructions))
 		}
 
 		# program_size = #_of_Instructions * word_size
@@ -101,15 +104,35 @@ class Scoreboard:
 		# Take into account scoreboarding wait tests +
 		# clock costs and global clock counter
 
-		cur_inst_stage_cost = self.architecture\
-			["stage_costs"][cur_inst_stage] + additional_cost
+		if cur_inst_stage != "issue":
+			total_cost = 0
 
-		# Check if current global clock counter already
-		# satisfies current instruction pipeline stage cost
-		if cur_inst_stage_cost < self.global_clock_timer:
-			# Pipeline stage of this instruction not
-			# ready yet, return False
-			return False
+			# Method here ~~~~~
+			cur_inst_metadata = self.instruction_list[\
+				cur_inst_pc // self.word_size]
+
+			cur_inst_func_unit = cur_inst_metadata["functional_unit"]
+
+			if cur_inst_stage == "execution":
+				total_cost += self.functional_units[cur_inst_func_unit]["clock_cycles"]
+
+			if cur_inst_stage in self.stage_delay:
+				total_cost += self.stage_delay[cur_inst_stage]
+
+			if "additional_cost" in cur_inst_metadata:
+				total_cost += cur_inst_metadata["additional_cost"]
+			# Method here ~~~~~
+
+			cur_inst_stage_cost = total_cost + self.inst_status[cur_inst_pc]\
+				[self.PIPELINE_STAGES[self.PIPELINE_STAGES.index(cur_inst_stage) - 1]]
+
+			# Check if current global clock counter already
+			# satisfies current instruction pipeline stage cost
+
+			if cur_inst_stage_cost > self.global_clock_timer:
+				# Pipeline stage of this instruction not
+				# ready yet, return False
+				return False
 
 		# Extract some metadata from the current instruction
 		cur_inst_metadata = self.instruction_list[\
@@ -117,17 +140,15 @@ class Scoreboard:
 		cur_inst_label = cur_inst_metadata["label"]
 		cur_inst_func_unit = cur_inst_metadata["functional_unit"]
 
-		cur_inst_f_i = None
-		...
-
 		if cur_inst_stage == "issue":
 			"""
 				~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 				Pipeline "Issue" stage
 				~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 			"""
-			if not self.func_unit_status[cur_inst_func_unit]["busy"] and\
-				not self.reg_res_status[cur_inst_reg_dest]:
+			cur_inst_reg_dest = cur_inst_metadata["reg_dest"]
+			if not self.func_unit_status[cur_inst_func_unit]["busy"][-1] and\
+				not self.reg_res_status[cur_inst_reg_dest][-1]:
 				return True
 
 		elif cur_inst_stage == "read_operands":
@@ -136,8 +157,8 @@ class Scoreboard:
 				Pipeline "Read Operands" stage
 				~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 			"""
-			if self.func_unit_status[cur_inst_func_unit]["r_j"] and \
-				self.func_unit_status[cur_inst_func_unit]["r_k"]:
+			if self.func_unit_status[cur_inst_func_unit]["r_j"][-1] and \
+				self.func_unit_status[cur_inst_func_unit]["r_k"][-1]:
 				return True
 
 		elif cur_inst_stage == "execution":
@@ -154,15 +175,19 @@ class Scoreboard:
 				Pipeline "Write Result" stage
 				~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 			"""
+			cur_inst_f_i = self.func_unit_status[cur_inst_func_unit]["f_i"][-1]
+
 			for loop_func_unit_label in self.func_unit_status:
 				loop_cur_func_unit = self.func_unit_status[loop_func_unit_label]
 
-				if loop_cur_func_unit["f_j"][-1] == cur_inst_f_i and\
-					not loop_cur_func_unit["r_j"][-1]:
+				if len(loop_cur_func_unit["f_j"]) and \
+					loop_cur_func_unit["f_j"][-1] == cur_inst_f_i and\
+					loop_cur_func_unit["r_j"][-1]:
 					return False
 
-				if loop_cur_func_unit["f_k"][-1] == cur_inst_f_i and\
-					not loop_cur_func_unit["r_k"][-1]:
+				if len(loop_cur_func_unit["f_k"]) and \
+					loop_cur_func_unit["f_k"][-1] == cur_inst_f_i and\
+					loop_cur_func_unit["r_k"][-1]:
 					return False
 
 			return True
@@ -170,29 +195,47 @@ class Scoreboard:
 		# Return False by default
 		return False
 
-	def __update_counters(self, 
-		cur_inst_pc, 
-		cur_inst_stage, 
-		cur_min_pc, 
-		cur_max_pc):
+	def __issuepack(self, cur_inst_metadata):
+		"""
+			Return several information related to the
+			"Issue" stage for the current instruction.
+		"""
+		cur_inst_type = cur_inst_metadata["instruction_type"]
 
-		if cur_inst_stage == self.PIPELINE_STAGES[-1]:
-			cur_inst_stage = None
+		issue_pack = {
+			"f_i" : None,
+			"f_j" : None,
+			"f_k" : None,
+			"q_j" : None,
+			"q_k" : None,
+			"r_j" : None,
+			"r_k" : None,
+		}
 
-			# Move program counter window, if needed
-			if cur_inst_pc == cur_max_pc and \
-				cur_max_pc < self.program_size:
-				cur_max_pc += self.word_size
+		if cur_inst_type == "R":
+			issue_pack["f_i"] = cur_inst_metadata["reg_dest"]
+			issue_pack["f_j"] = cur_inst_metadata["reg_source_j"]
+			issue_pack["f_k"] = cur_inst_metadata["reg_source_k"]
+			issue_pack["q_j"] = self.reg_res_status[\
+				cur_inst_metadata["reg_source_j"]][-1]
+			issue_pack["q_k"] = self.reg_res_status[\
+				cur_inst_metadata["reg_source_k"]][-1]
+			issue_pack["r_j"] = issue_pack["q_j"] == 0
+			issue_pack["r_k"] = issue_pack["q_k"] == 0
 
-			elif cur_inst_pc == cur_min_pc:
-				cur_min_pc += self.word_size
+		elif cur_inst_type == "I":
+			issue_pack["f_i"] = cur_inst_metadata["reg_dest"]
+			issue_pack["f_j"] = cur_inst_metadata["reg_source"]
+			issue_pack["q_j"] = self.reg_res_status[\
+				cur_inst_metadata["reg_source"]][-1]
+			issue_pack["r_j"] = issue_pack["q_j"] == 0
+			issue_pack["r_k"] = True
+
 		else:
-			# Set the current instruction state to
-			# the next pipeline stage
-			cur_inst_stage = self.PIPELINE_STAGES[1 +\
-				self.PIPELINE_STAGES.index(cur_inst_stage)]
+			# Type J
+			pass
 
-		return cur_inst_stage, cur_min_pc, cur_max_pc
+		return issue_pack
 
 	def __bookkeep(self, 
 		cur_inst_pc, 
@@ -205,23 +248,7 @@ class Scoreboard:
 			cur_inst_pc // self.word_size]
 		cur_inst_label = cur_inst_metadata["label"]
 		cur_inst_func_unit = cur_inst_metadata["functional_unit"]
-		cur_inst_type = cur_inst_metadata["instruction_type"]
-		cur_func_unit_status = self.funct_unit_status[cur_inst_func_unit]
-
-		cur_inst_f_i = None
-		cur_inst_f_j = None
-		cur_inst_f_k = None
-		cur_inst_q_j = None
-		cur_inst_q_k = None
-		cur_inst_r_j = None
-		cur_inst_r_k = None
-		...
-
-		stage_cost = 0
-
-		# Add basic stage cost
-		if cur_inst_stage in self.stage_costs:
-			stage_cost += self.stage_costs[cur_inst_stage]
+		cur_func_unit_status = self.func_unit_status[cur_inst_func_unit]
 
 		# Bookkeep based on the current instruction
 		# pipeline stage
@@ -231,16 +258,20 @@ class Scoreboard:
 				Pipeline "Issue" stage
 				~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 			"""
+			# Select, based on the instruction type "R", "I" or "J"
+			# the corrent values to be appended in the scoreboard
+			issue_pack = self.__issuepack(cur_inst_metadata)
+
 			cur_func_unit_status["busy"].append(True)
 			cur_func_unit_status["op"].append(cur_inst_pc)
-			cur_func_unit_status["f_i"].append(cur_inst_f_i)
-			cur_func_unit_status["f_j"].append(cur_inst_f_j)
-			cur_func_unit_status["f_k"].append(cur_inst_f_k)
-			cur_func_unit_status["q_j"].append(cur_inst_q_j)
-			cur_func_unit_status["q_k"].append(cur_inst_q_k)
-			cur_func_unit_status["r_j"].append(cur_inst_r_j)
-			cur_func_unit_status["r_k"].append(cur_inst_r_k)
-			self.reg_res_status[cur_inst_f_i].append(cur_inst_func_unit)
+			cur_func_unit_status["f_i"].append(issue_pack["f_i"])
+			cur_func_unit_status["f_j"].append(issue_pack["f_j"])
+			cur_func_unit_status["f_k"].append(issue_pack["f_k"])
+			cur_func_unit_status["q_j"].append(issue_pack["q_j"])
+			cur_func_unit_status["q_k"].append(issue_pack["q_k"])
+			cur_func_unit_status["r_j"].append(issue_pack["r_j"])
+			cur_func_unit_status["r_k"].append(issue_pack["r_k"])
+			self.reg_res_status[issue_pack["f_i"]].append(cur_inst_func_unit)
 
 		elif cur_inst_stage == "read_operands":
 			"""
@@ -259,12 +290,7 @@ class Scoreboard:
 				Pipeline "Execution" stage
 				~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 			"""
-			# Add cost from the functional unit execution delay
-			stage_cost += self.functional_units[cur_inst_func_unit]["clock_cycles"]
-
-			# Check if current instruction has an custom additional cost
-			if "additional_cost" in cur_inst_metadata:
-				stage_cost += cur_inst_metadata["additional_cost"]
+			pass
 
 		else:
 			"""
@@ -272,43 +298,46 @@ class Scoreboard:
 				Pipeline "Write Result" stage
 				~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 			"""
-			# Copying this code line because "Write Result" stage
-			# demands this calculation sooner
-			total_cost = self.global_clock_timer + stage_cost
-
 			# For all functional units waiting for the
 			# current functional unit finalize for any of
 			# the operand register, set the ready flags to true
 			for loop_func_unit_label in self.func_unit_status:
 				loop_cur_func_unit = self.func_unit_status[loop_func_unit_label]
 
-				if loop_cur_func_unit["q_k"][-1] == cur_func_unit:
+				if len(loop_cur_func_unit["q_k"]) and\
+					loop_cur_func_unit["q_k"][-1] == cur_inst_func_unit:
 					loop_cur_func_unit["r_k"].append(True)
 
-				if loop_cur_func_unit["q_j"][-1] == cur_func_unit:
+				if len(loop_cur_func_unit["q_j"]) and\
+					loop_cur_func_unit["q_j"][-1] == cur_inst_func_unit:
 					loop_cur_func_unit["r_j"].append(True)
 
-				loop_cur_func_unit["update_timers"].append(total_cost)
+				loop_cur_func_unit["update_timers"].append(self.global_clock_timer)
 
+			# Current functional unity current register
+			cur_inst_f_i = cur_func_unit_status["f_i"][-1]
+
+			# The destiny register of the current instruction
+			# does not depend of any functional unit anymore
 			self.reg_res_status[cur_inst_f_i].append(0)
 			cur_func_unit_status["busy"].append(False)
 
 		# Mark the current clock cycle plus stage cost in the
 		# instruction status
-		total_cost = self.global_clock_timer + stage_cost
-		self.inst_states[cur_inst_stage] = total_cost
+		self.inst_status[cur_inst_pc][cur_inst_stage] =\
+			self.global_clock_timer
 
 		# Keep track of which clock corresponds to
 		# the current change in order to print corre-
 		# ctly after process ends
-		cur_func_unit_status["update_timers"].append(total_cost)
+		cur_func_unit_status["update_timers"].append(\
+			self.global_clock_timer)
 		
 		# Check if instruction was completed
-		return self.__update_counters(
-			cur_inst_pc, 
-			cur_inst_stage, 
-			cur_min_pc, 
-			cur_max_pc)
+		if cur_inst_stage != self.PIPELINE_STAGES[-1]:
+			return self.PIPELINE_STAGES[1 + \
+				self.PIPELINE_STAGES.index(cur_inst_stage)]
+		return None
 
 	def run(self):
 		# Check if user called "load_architecture" method before
@@ -342,24 +371,22 @@ class Scoreboard:
 
 			# For each instruction between the not completed
 			# former and the most recently one dispatched...
-			for cur_inst_pc in range(cur_min_pc, cur_max_pc + self.word_size):
+			for cur_inst_pc in range(cur_min_pc, cur_max_pc + self.word_size, self.word_size):
 				# Check the wait conditions of the current stage
 				# of the current instruction
-				if self.inst_status[cur_inst_id][LAST_PIPELINE_STAGE] is not None:
-
+				if self.inst_status[cur_inst_pc][LAST_PIPELINE_STAGE] is None:
 					# Keep track of the current pipeline stage of
 					# each active (dispatched + not completed) instruction
-					if cur_inst_pc not in inst_cut_stage:
+					if cur_inst_pc not in inst_cur_stage:
 						inst_cur_stage[cur_inst_pc] = FIRST_PIPELINE_STAGE
 					cur_inst_stage = inst_cur_stage[cur_inst_pc]
 
 					# If ready, proceed to the next stage
 					if self.__check_inst_ready(cur_inst_pc, cur_inst_stage):
-						new_inst_stage, cur_max_pc, cur_min_pc = \
-							self.__bookkeep(\
+						new_inst_stage = self.__bookkeep(\
 								cur_inst_pc, 
 								cur_inst_stage,
-								cur_min_pac, 
+								cur_min_pc, 
 								cur_max_pc)
 
 						# Update current instruction new pipeline stage
@@ -367,6 +394,14 @@ class Scoreboard:
 							inst_cur_stage[cur_inst_pc] = new_inst_stage
 						else:
 							inst_cur_stage.pop(cur_inst_pc)
+
+						if inst_cur_stage:
+							cur_min_pc = min(inst_cur_stage)
+							cur_max_pc = min(self.program_size - self.word_size, \
+								max(cur_inst_pc + self.word_size, \
+								max(inst_cur_stage)))
+						else:
+							cur_min_pc = cur_max_pc = self.program_size
 
 		# Produce final output
 		ans = {

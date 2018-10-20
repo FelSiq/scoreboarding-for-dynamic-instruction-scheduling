@@ -63,7 +63,11 @@ class Scoreboard:
 				"q_k": [None],
 				"r_j": [True],
 				"r_k": [True],
-				"update_timers": [-1],
+				"update_timers": [{
+					"clock" : -1, 
+					"changed_fields" : set(),
+					"changed_register_set" : set(),
+				}],
 			} for func_unit in architecture["functional_units"]
 		}
 
@@ -250,6 +254,14 @@ class Scoreboard:
 		cur_inst_func_unit = cur_inst_metadata["functional_unit"]
 		cur_func_unit_status = self.func_unit_status[cur_inst_func_unit]
 
+		# Keep track of which scoreboard field are changed
+		# in this bookkepping call
+		changed_field_set = set()
+
+		# The same as above, but with the destiny register
+		# status list
+		changed_register_set = set()
+
 		# Bookkeep based on the current instruction
 		# pipeline stage
 		if cur_inst_stage == "issue":
@@ -272,7 +284,12 @@ class Scoreboard:
 			cur_func_unit_status["r_j"].append(issue_pack["r_j"])
 			cur_func_unit_status["r_k"].append(issue_pack["r_k"])
 			self.reg_res_status[issue_pack["f_i"]].append(cur_inst_func_unit)
-
+			changed_field_set.update({\
+				"busy", "op", "f_i", 
+				"f_j", "f_k", "q_j", 
+				"q_k", "r_j", "r_k"
+			})
+			changed_register_set.update({issue_pack["f_i"]})
 		elif cur_inst_stage == "read_operands":
 			"""
 				~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -283,7 +300,7 @@ class Scoreboard:
 			cur_func_unit_status["r_k"].append(False)
 			cur_func_unit_status["q_j"].append(0)
 			cur_func_unit_status["q_k"].append(0)
-
+			changed_field_set.update({"r_j", "r_k", "q_j", "q_k"})
 		elif cur_inst_stage == "execution":
 			"""
 				~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -303,16 +320,23 @@ class Scoreboard:
 			# the operand register, set the ready flags to true
 			for loop_func_unit_label in self.func_unit_status:
 				loop_cur_func_unit = self.func_unit_status[loop_func_unit_label]
+				loop_cur_changed_field_set = set()
 
 				if len(loop_cur_func_unit["q_k"]) and\
 					loop_cur_func_unit["q_k"][-1] == cur_inst_func_unit:
 					loop_cur_func_unit["r_k"].append(True)
+					loop_cur_changed_field_set.update({"r_k"})
 
 				if len(loop_cur_func_unit["q_j"]) and\
 					loop_cur_func_unit["q_j"][-1] == cur_inst_func_unit:
 					loop_cur_func_unit["r_j"].append(True)
+					loop_cur_changed_field_set.update({"r_j"})
 
-				loop_cur_func_unit["update_timers"].append(self.global_clock_timer)
+				loop_cur_func_unit["update_timers"].append({\
+					"clock" : self.global_clock_timer,
+					"changed_fields" : loop_cur_changed_field_set,
+					"changed_register_set" : set(),
+				})
 
 			# Current functional unity current register
 			cur_inst_f_i = cur_func_unit_status["f_i"][-1]
@@ -321,6 +345,8 @@ class Scoreboard:
 			# does not depend of any functional unit anymore
 			self.reg_res_status[cur_inst_f_i].append(0)
 			cur_func_unit_status["busy"].append(False)
+			changed_field_set.update({"busy"})
+			changed_register_set.update({cur_inst_f_i})
 
 		# Mark the current clock cycle plus stage cost in the
 		# instruction status
@@ -330,8 +356,11 @@ class Scoreboard:
 		# Keep track of which clock corresponds to
 		# the current change in order to print corre-
 		# ctly after process ends
-		cur_func_unit_status["update_timers"].append(\
-			self.global_clock_timer)
+		cur_func_unit_status["update_timers"].append({\
+			"clock" : self.global_clock_timer,
+			"changed_fields" : changed_field_set,
+			"changed_registers" : changed_register_set,
+		})
 		
 		# Check if instruction was completed
 		if cur_inst_stage != self.PIPELINE_STAGES[-1]:

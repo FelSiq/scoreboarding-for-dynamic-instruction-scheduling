@@ -150,15 +150,6 @@ class Scoreboard:
 				Pipeline "Issue" stage
 				~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 			"""
-
-			# Check if the current functional unit status was 
-			# not updated this same clock
-			if self.func_unit_status[cur_inst_func_unit]["update_timers"][-1]["clock"]\
-				== self.global_clock_timer:
-				return False
-
-			# Do the same checking with the destiny register here...
-
 			cur_inst_reg_dest = cur_inst_metadata["reg_dest"]
 			if not self.func_unit_status[cur_inst_func_unit]["busy"][-1] and\
 				not self.reg_res_status[cur_inst_reg_dest][-1]:
@@ -170,13 +161,6 @@ class Scoreboard:
 				Pipeline "Read Operands" stage
 				~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 			"""
-
-			# Check if the current functional unit status was 
-			# not updated this same clock
-			if self.func_unit_status[cur_inst_func_unit]["update_timers"][-1]["clock"]\
-				== self.global_clock_timer:
-				return False
-
 			if self.func_unit_status[cur_inst_func_unit]["r_j"][-1] and \
 				self.func_unit_status[cur_inst_func_unit]["r_k"][-1]:
 				return True
@@ -196,8 +180,6 @@ class Scoreboard:
 				~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 			"""
 			cur_inst_f_i = self.func_unit_status[cur_inst_func_unit]["f_i"][-1]
-
-			# Am I missing something right here??
 
 			for loop_func_unit_label in self.func_unit_status:
 				loop_cur_func_unit = self.func_unit_status[loop_func_unit_label]
@@ -417,6 +399,12 @@ class Scoreboard:
 
 		while cur_min_pc < self.program_size:
 			self.global_clock_timer += 1
+		
+			# Accumulate all changes in the to_commit_this_clock
+			# structure in order to the changes of each instruction
+			# do not interfere in the next instructions at the same
+			# clock
+			self.to_commit_this_clock = []
 
 			# For each instruction between the not completed
 			# former and the most recently one dispatched...
@@ -451,6 +439,10 @@ class Scoreboard:
 								max(inst_cur_stage)))
 						else:
 							cur_min_pc = cur_max_pc = self.program_size
+
+			# Commit all changes made in the current clock
+			for change in self.to_commit_this_clock:
+				pass
 
 		# Produce final output
 		ans = {

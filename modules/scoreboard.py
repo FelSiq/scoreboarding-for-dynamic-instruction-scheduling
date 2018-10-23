@@ -1,5 +1,3 @@
-from collections import OrderedDict
-
 class Scoreboard:
 	"""
 		Instruction Status:
@@ -41,7 +39,6 @@ class Scoreboard:
 		self.inst_status = None
 		self.word_size = 0
 		self.program_size = 0
-		self.DONE_LABEL = "done"
 		self.PIPELINE_STAGES = [
 			"issue", 
 			"read_operands", 
@@ -50,6 +47,12 @@ class Scoreboard:
 		]
 
 		self.global_clock_timer = 0
+		
+		# Auxiliar structure to accumulate all changes in the 
+		# current clock cycle in order to prevent interferences 
+		# from changes of each instruction to the next instruc-
+		# tions within the same clock cycle
+		self.__to_commit_this_clock = {}
 
 	def load_architecture(self, architecture):
 		self.func_unit_status = {
@@ -254,6 +257,18 @@ class Scoreboard:
 		cur_inst_func_unit = cur_inst_metadata["functional_unit"]
 		cur_func_unit_status = self.func_unit_status[cur_inst_func_unit]
 
+		# Auxiliary data structure to keep all changes of
+		# the current clock to prevent interference between
+		# instructions within the same clock cycle
+		self.__to_commit_this_clock[cur_inst_func_unit] = {
+			"fields" : {},
+			"registers" : {},
+		}
+		cur_func_unit_status_aux = self.__to_commit_this_clock\
+			[cur_inst_func_unit]["fields"]
+		cur_registers_status_aux = self.__to_commit_this_clock\
+			[cur_inst_func_unit]["registers"]
+
 		# Keep track of which scoreboard field are changed
 		# in this bookkepping call
 		changed_field_set = set()
@@ -274,16 +289,17 @@ class Scoreboard:
 			# the corrent values to be appended in the scoreboard
 			issue_pack = self.__issuepack(cur_inst_metadata)
 
-			cur_func_unit_status["busy"].append(True)
-			cur_func_unit_status["op"].append(cur_inst_pc)
-			cur_func_unit_status["f_i"].append(issue_pack["f_i"])
-			cur_func_unit_status["f_j"].append(issue_pack["f_j"])
-			cur_func_unit_status["f_k"].append(issue_pack["f_k"])
-			cur_func_unit_status["q_j"].append(issue_pack["q_j"])
-			cur_func_unit_status["q_k"].append(issue_pack["q_k"])
-			cur_func_unit_status["r_j"].append(issue_pack["r_j"])
-			cur_func_unit_status["r_k"].append(issue_pack["r_k"])
-			self.reg_res_status[issue_pack["f_i"]].append(cur_inst_func_unit)
+			cur_func_unit_status_aux["busy"] = True
+			cur_func_unit_status_aux["op"] = cur_inst_pc
+			cur_func_unit_status_aux["f_i"] = issue_pack["f_i"]
+			cur_func_unit_status_aux["f_j"] = issue_pack["f_j"]
+			cur_func_unit_status_aux["f_k"] = issue_pack["f_k"]
+			cur_func_unit_status_aux["q_j"] = issue_pack["q_j"]
+			cur_func_unit_status_aux["q_k"] = issue_pack["q_k"]
+			cur_func_unit_status_aux["r_j"] = issue_pack["r_j"]
+			cur_func_unit_status_aux["r_k"] = issue_pack["r_k"]
+			cur_registers_status_aux[issue_pack["f_i"]] = cur_inst_func_unit
+
 			changed_field_set.update({\
 				"busy", "op", "f_i", 
 				"f_j", "f_k", "q_j", 
@@ -297,10 +313,11 @@ class Scoreboard:
 				Pipeline "Read Operands" stage
 				~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 			"""
-			cur_func_unit_status["r_j"].append(False)
-			cur_func_unit_status["r_k"].append(False)
-			cur_func_unit_status["q_j"].append(0)
-			cur_func_unit_status["q_k"].append(0)
+			cur_func_unit_status_aux["r_j"] = False
+			cur_func_unit_status_aux["r_k"] = False
+			cur_func_unit_status_aux["q_j"] = 0
+			cur_func_unit_status_aux["q_k"] = 0
+
 			changed_field_set.update({"r_j", "r_k", "q_j", "q_k"})
 
 		elif cur_inst_stage == "execution":
@@ -322,31 +339,42 @@ class Scoreboard:
 			# the operand register, set the ready flags to true
 			for loop_func_unit_label in self.func_unit_status:
 				loop_cur_func_unit = self.func_unit_status[loop_func_unit_label]
+
+				if loop_func_unit_label not in self.__to_commit_this_clock:
+					self.__to_commit_this_clock[loop_func_unit_label] = {\
+						"fields" : {},
+						"registers" : {},
+					}
+
+				loop_cur_func_unit_aux = self.__to_commit_this_clock\
+					[loop_func_unit_label]["fields"]
+					
 				loop_cur_changed_field_set = set()
 
 				if len(loop_cur_func_unit["q_k"]) and\
 					loop_cur_func_unit["q_k"][-1] == cur_inst_func_unit:
-					loop_cur_func_unit["r_k"].append(True)
+					loop_cur_func_unit_aux["r_k"] = True
 					loop_cur_changed_field_set.update({"r_k"})
 
 				if len(loop_cur_func_unit["q_j"]) and\
 					loop_cur_func_unit["q_j"][-1] == cur_inst_func_unit:
-					loop_cur_func_unit["r_j"].append(True)
+					loop_cur_func_unit_aux["r_j"] = True
 					loop_cur_changed_field_set.update({"r_j"})
 
-				loop_cur_func_unit["update_timers"].append({\
+				loop_cur_func_unit_aux["update_timers"] = {\
 					"clock" : self.global_clock_timer,
 					"changed_fields" : loop_cur_changed_field_set,
 					"changed_register_set" : set(),
-				})
+				}
 
-			# Current functional unity current register
+			# Current functional unit current register
 			cur_inst_f_i = cur_func_unit_status["f_i"][-1]
 
 			# The destiny register of the current instruction
 			# does not depend of any functional unit anymore
-			self.reg_res_status[cur_inst_f_i].append(0)
-			cur_func_unit_status["busy"].append(False)
+			cur_registers_status_aux[cur_inst_f_i] = 0
+			cur_func_unit_status_aux["busy"] = False
+
 			changed_field_set.update({"busy"})
 			changed_register_set.update({cur_inst_f_i})
 
@@ -358,11 +386,11 @@ class Scoreboard:
 		# Keep track of which clock corresponds to
 		# the current change in order to print corre-
 		# ctly after process ends
-		cur_func_unit_status["update_timers"].append({\
+		cur_func_unit_status_aux["update_timers"] = {\
 			"clock" : self.global_clock_timer,
 			"changed_fields" : changed_field_set,
 			"changed_registers" : changed_register_set,
-		})
+		}
 		
 		# Check if instruction was completed
 		if cur_inst_stage != self.PIPELINE_STAGES[-1]:
@@ -397,14 +425,12 @@ class Scoreboard:
 		cur_min_pc = 0
 		cur_max_pc = 0
 
+		# Make sure the auxiliary unit for inner-clock changes
+		# is clean
+		self.__to_commit_this_clock = {}
+
 		while cur_min_pc < self.program_size:
 			self.global_clock_timer += 1
-		
-			# Accumulate all changes in the to_commit_this_clock
-			# structure in order to the changes of each instruction
-			# do not interfere in the next instructions at the same
-			# clock
-			self.to_commit_this_clock = []
 
 			# For each instruction between the not completed
 			# former and the most recently one dispatched...
@@ -441,8 +467,22 @@ class Scoreboard:
 							cur_min_pc = cur_max_pc = self.program_size
 
 			# Commit all changes made in the current clock
-			for change in self.to_commit_this_clock:
-				pass
+			for func_unit_label in self.__to_commit_this_clock:
+				cur_func_unit_changes = self.__to_commit_this_clock[func_unit_label]
+				cur_func_unit_status = self.func_unit_status[func_unit_label]
+				# Do fields changes
+				cur_f_u_field_changes = cur_func_unit_changes["fields"]
+				for field in cur_f_u_field_changes:
+					cur_func_unit_status[field].append(cur_f_u_field_changes[field])
+
+				# Do register changes
+				cur_f_u_reg_changes = cur_func_unit_changes["registers"]
+				for register_label in cur_f_u_reg_changes:
+					self.reg_res_status[register_label].append(\
+						cur_f_u_reg_changes[register_label])
+
+			# Clean up all changes
+			self.__to_commit_this_clock = {}
 
 		# Produce final output
 		ans = {

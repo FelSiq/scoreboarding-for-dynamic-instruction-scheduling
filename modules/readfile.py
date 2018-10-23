@@ -79,27 +79,69 @@ class ReadFile:
 			\s*([^\s]+)		# Get instruction label
 			\s*([^\s,]+)\s*,	# Get destiny register (rd)
 			\s*([^\s,]+)\s*,	# Get first operand reg (rs)
-			\s*([^\s]+)		# Get second operand reg (rt)
+			\s*([^\s,]+)		# Get second operand reg (rt)
+			\s*$			# Force instruction end
 			""", re.VERBOSE)
 
-		re_readinst_type_i = re.compile(r"""
-			# Regex to match just I-type instructions
+		re_readinst_type_i_lw_sw = re.compile(r"""
+			# Regex to match just "Store/Load Word" (I-type) instructions
 			\s*([^\s]+)		# Get instruction label
 			\s*([^\s,]+)\s*,	# Get destiny register (rs)
-			\s*([-+0-9]+)		# Get the immediate value
-			\s*\(([^\s]+)\)		# Get the opperand reg (rt)
+			\s*([-+]?[0-9]+)	# Get the immediate value
+			\s*\(([^\s,]+)\)	# Get the opperand reg (rt)
+			\s*$			# Force instruction end
+			""", re.VERBOSE)
+
+		re_readinst_type_i_common = re.compile(r"""
+			# Regex to match just "common" I-type instructions
+			\s*([^\s]+)		# Get instruction label
+			\s*([^\s,]+)\s*,	# Get destiny register (rd)
+			\s*([^\s,]+)\s*,	# Get first operand reg (rs)
+			\s*([-+]?[0-9]+)	# Get second operand immediate value
+			\s*$			# Force instruction end
+			""", re.VERBOSE)
+
+		re_readinst_type_i_branch_2 = re.compile(r"""
+			# Regex to match just "Conditional Branches
+			# with two operands" (I-type) instructions
+			\s*([^\s]+)		# Get instruction label
+			\s*([^\s,]+)\s*,	# Get first reg operand (rs)
+			\s*([^\s,]+)\s*,	# Get second reg operand (rt)
+			\s*([^\s,\(\)]+)	# Get conditional branch target label
+			\s*$			# Force instruction end
+			""", re.VERBOSE)
+
+		re_readinst_type_i_branch_1 = re.compile(r"""
+			# Regex to match just "Conditional Branches
+			# with single operand" (I-type) instructions
+			\s*([^\s]+)		# Get instruction label
+			\s*([^\s,]+)\s*,	# Get operand register (rs)
+			\s*([^\s,\(\)]+)	# Get conditional branch target label
+			\s*$			# Force instruction end
 			""", re.VERBOSE)
 
 		re_readinst_type_j = re.compile(r"""
 			# Regex to match just J-type instructions
 			\s*([^\s]+)		# Get instruction label
-			\s*([^\s]+)		# Get branch label
+			\s*([^\s,\(\)]+)	# Get branch label
+			\s*$			# Force instruction end
 			""", re.VERBOSE)
 
 		self.re_list_matchers = {
-			"R" : re_readinst_type_r,
-			"I" : re_readinst_type_i,
-			"J" : re_readinst_type_j,
+			"R" : {
+				"common" : re_readinst_type_r,
+			},
+
+			"I" : {
+				"common" : re_readinst_type_i_common,
+				"lw_sw" : re_readinst_type_i_lw_sw,
+				"branch_1" : re_readinst_type_i_branch_1,
+				"branch_2" : re_readinst_type_i_branch_2,
+			},
+
+			"J" : {
+				"common" : re_readinst_type_j,
+			},
 		}
 
 	def __instexception(self, inst_label, program_line_counter, word_size):
@@ -107,12 +149,20 @@ class ReadFile:
 			str(1 + program_line_counter) + ", PC " + \
 			str(program_line_counter * word_size) +")" 
 
-	def __checkreg(self, register_label, architecture, program_line_counter):
+	def __checkreg(self, 
+		register_label, 
+		architecture, 
+		program_line_counter, 
+		force=False):
+
 		"""
 			Check if a register is in the register back
-			of the previously loaded architecture.
+			of the previously loaded architecture. If
+			"force" flag is enabled, then the register
+			will be accepted even if it is not in the
+			architecture specification
 		"""
-		if register_label in architecture["registers"]:
+		if register_label in architecture["registers"] or force:
 			return register_label
 
 		raise Exception("Unknown register label \"" + register_label +\
@@ -252,82 +302,128 @@ class ReadFile:
 					
 					# Parse the instruction using a proper regular expression
 					# based on it's type.
-					match = self.re_list_matchers[inst_type].match(instruction)
+					for matcher_variant in self.re_list_matchers[inst_type]:
+						match = self.re_list_matchers[inst_type][matcher_variant].match(instruction)
 
-					if match:
-						"""
-							~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-							Load instruction metadata from configme.py file
-							~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-						"""
-						
-						# Check if given instruction functional unit
-						# actually exists in the given architecture
-						if inst_pack["functional_unit"] not \
-							in architecture["functional_units"]:
+						if match:
+							"""
+								~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+								Load instruction metadata from configme.py file
+								~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+							"""
+							
+							# Check if given instruction functional unit
+							# actually exists in the given architecture
+							if inst_pack["functional_unit"] not \
+								in architecture["functional_units"]:
 
-							raise Exception("Unknown funcional unit \"" +\
-								inst_pack["functional_unit"] +\
-								"\" of instruction \"" +\
-								self.__instexception(inst_label, 
-									program_line_counter, 
-									architecture["word_size"]))
-
-						# User can configure additional costs for customs
-						# instructions in Config.custom_inst_additional_delay
-						# within configme.py module
-						if inst_label in Config.custom_inst_additional_delay:
-							inst_pack["additional_cost"] = Config.\
-								custom_inst_additional_delay[inst_label]
-
-							# No negative "additional_cost" allowed for 
-							# any instruction
-							if inst_pack["additional_cost"] <= 0:
-								raise Exception("Instruction \"" +\
+								raise Exception("Unknown funcional unit \"" +\
+									inst_pack["functional_unit"] +\
+									"\" of instruction \"" +\
 									self.__instexception(inst_label, 
 										program_line_counter, 
-										architecture["word_size"]) +\
-									" has non-positive additional cost (" + \
-									str(inst_pack["additional_cost"]) + ")")
+										architecture["word_size"]))
 
-						if inst_type == "R":
-							"""
-								~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-								Instruction type R configuration:
-								Inst_label r_dest, r_op_j, r_op_k
-								~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-							"""
-							inst_pack["reg_dest"] = self.__checkreg(match.group(2), 
-								architecture, program_line_counter)
-							inst_pack["reg_source_j"] = self.__checkreg(match.group(3),
-								architecture, program_line_counter)
-							inst_pack["reg_source_k"] = self.__checkreg(match.group(4),
-								architecture, program_line_counter)
+							# User can configure additional costs for customs
+							# instructions in Config.custom_inst_additional_delay
+							# within configme.py module
+							if inst_label in Config.custom_inst_additional_delay:
+								inst_pack["additional_cost"] = Config.\
+									custom_inst_additional_delay[inst_label]
 
-						elif inst_type == "I":
-							"""
-								~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-								Instruction type I configuration:
-								Inst_label r_dest, imm(r_op)
-								~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-							"""
-							inst_pack["reg_dest"] = self.__checkreg(match.group(2),
-								architecture, program_line_counter)
-							inst_pack["immediate"] = match.group(3)
-							inst_pack["reg_source"] = self.__checkreg(match.group(4), 
-								architecture, program_line_counter)
-						else:
-							"""
-								~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-								Instruction type J configuration:
-								Inst_label jump_label
-								~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-							"""
-							inst_pack["jmp_label"] = match.group(2)
+								# No negative "additional_cost" allowed for 
+								# any instruction
+								if inst_pack["additional_cost"] <= 0:
+									raise Exception("Instruction \"" +\
+										self.__instexception(inst_label, 
+											program_line_counter, 
+											architecture["word_size"]) +\
+										" has non-positive additional cost (" + \
+										str(inst_pack["additional_cost"]) + ")")
 
-						# Append instruction with its metadata in the
-						# instruction list
-						instruction_list.append(inst_pack)
+							if inst_type == "R":
+								"""
+									~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+									Instruction type R configuration:
+									Inst_label r_dest, r_op_j, r_op_k
+									~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+								"""
+								inst_pack["reg_dest"] = self.__checkreg(match.group(2), 
+									architecture, program_line_counter)
+								inst_pack["reg_source_j"] = self.__checkreg(match.group(3),
+									architecture, program_line_counter)
+								inst_pack["reg_source_k"] = self.__checkreg(match.group(4),
+									architecture, program_line_counter)
+
+							elif inst_type == "I":
+								"""
+									~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+									Instruction type I configuration:
+									Variant 1.a (LW): Inst_label r_dest, imm(r_op)
+									Variant 1.b (SW): Inst_label r_op_k, imm(r_op_j)
+									Variant 2 (Cond. Branch 1): Inst_label r_op, target_label
+									Variant 3 (Cond. Branch 2): Inst_label r_op_j, r_op_k, target_label
+									Variant 4 (Common): Inst_label r_dest, r_op, immediate_val
+									~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+								"""
+								inst_pack["inst_format_variant"] = matcher_variant
+								if matcher_variant == "lw_sw":
+									# MIPS is a LOAD/STORE architecture, which means
+									# that the only type of instructions that can access
+									# the primary memory (probably a RAM variant) are "lw"
+									# and "sw" instructions.
+									if inst_pack["label"] in Config.store_instruction_set:
+										# Store Word operations (does not have a destiny register)
+										inst_pack["reg_source_k"] = self.__checkreg(match.group(2),
+											architecture, program_line_counter)
+										inst_pack["immediate"] = match.group(3)
+										inst_pack["reg_source_j"] = self.__checkreg(match.group(4), 
+											architecture, program_line_counter)
+										
+									else:
+										# Load Word operations
+										inst_pack["reg_dest"] = self.__checkreg(match.group(2),
+											architecture, program_line_counter)
+										inst_pack["immediate"] = match.group(3)
+										inst_pack["reg_source"] = self.__checkreg(match.group(4), 
+											architecture, program_line_counter)
+
+								elif matcher_variant == "common":
+									inst_pack["reg_dest"] = self.__checkreg(match.group(2),
+										architecture, program_line_counter)
+									inst_pack["reg_source"] = self.__checkreg(match.group(3), 
+										architecture, program_line_counter)
+									inst_pack["immediate"] = match.group(4)
+
+								elif matcher_variant == "branch_1":
+									inst_pack["reg_source"] = self.__checkreg(match.group(2),
+										architecture, program_line_counter)
+									inst_pack["immediate"] = match.group(3)
+
+								else:
+									# matcher_variant == "branch_2"
+									inst_pack["reg_source_j"] = self.__checkreg(match.group(2),
+										architecture, program_line_counter)
+									inst_pack["reg_source_k"] = self.__checkreg(match.group(3),
+										architecture, program_line_counter)
+									inst_pack["immediate"] = match.group(4)
+
+							else:
+								"""
+									~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+									Instruction type J configuration:
+									Inst_label jump_label
+									~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+								"""
+								inst_pack["jmp_label"] = match.group(2)
+
+							# Append instruction with its metadata in the
+							# instruction list
+							instruction_list.append(inst_pack)
+
+							# No need to match this instruction with other
+							# instruction format
+							break
 		
 		return instruction_list
 

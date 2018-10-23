@@ -172,10 +172,14 @@ class Scoreboard:
 				Pipeline "Issue" stage
 				~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 			"""
-			cur_inst_reg_dest = cur_inst_metadata["reg_dest"]
+			if "reg_dest" in cur_inst_metadata:
+				cur_inst_reg_dest = cur_inst_metadata["reg_dest"]
+			else:
+				cur_inst_reg_dest = None
+
 			# Check if destiny register (f_i) is not being produced
 			# by another functional unit
-			if not self.reg_res_status[cur_inst_reg_dest][-1]:
+			if cur_inst_reg_dest is None or not self.reg_res_status[cur_inst_reg_dest][-1]:
 
 				# Check if there is at least one idle replica of this
 				# instruction desired functional unit
@@ -213,20 +217,21 @@ class Scoreboard:
 			cur_inst_f_i = self.func_unit_status[cur_inst_func_unit]\
 				[cur_inst_replica_id]["f_i"][-1]
 
-			for loop_func_unit_label in self.func_unit_status:
-				for replica_id in self.func_unit_status[loop_func_unit_label]:
-					loop_cur_func_unit = self.func_unit_status\
-						[loop_func_unit_label][replica_id]
+			if cur_inst_f_i is not None:
+				for loop_func_unit_label in self.func_unit_status:
+					for replica_id in self.func_unit_status[loop_func_unit_label]:
+						loop_cur_func_unit = self.func_unit_status\
+							[loop_func_unit_label][replica_id]
 
-					if len(loop_cur_func_unit["f_j"]) and \
-						loop_cur_func_unit["f_j"][-1] == cur_inst_f_i and\
-						loop_cur_func_unit["r_j"][-1]:
-						return False
+						if len(loop_cur_func_unit["f_j"]) and \
+							loop_cur_func_unit["f_j"][-1] == cur_inst_f_i and\
+							loop_cur_func_unit["r_j"][-1]:
+							return False
 
-					if len(loop_cur_func_unit["f_k"]) and \
-						loop_cur_func_unit["f_k"][-1] == cur_inst_f_i and\
-						loop_cur_func_unit["r_k"][-1]:
-						return False
+						if len(loop_cur_func_unit["f_k"]) and \
+							loop_cur_func_unit["f_k"][-1] == cur_inst_f_i and\
+							loop_cur_func_unit["r_k"][-1]:
+							return False
 
 			return True
 
@@ -262,12 +267,24 @@ class Scoreboard:
 			issue_pack["r_k"] = issue_pack["q_k"] == 0
 
 		elif cur_inst_type == "I":
-			issue_pack["f_i"] = cur_inst_metadata["reg_dest"]
-			issue_pack["f_j"] = cur_inst_metadata["reg_source"]
-			issue_pack["q_j"] = self.reg_res_status[\
-				cur_inst_metadata["reg_source"]][-1]
+
+			if "reg_dest" in cur_inst_metadata:
+				issue_pack["f_i"] = cur_inst_metadata["reg_dest"]
+
+			if "reg_source" in cur_inst_metadata:
+				issue_pack["f_j"] = cur_inst_metadata["reg_source"]
+				issue_pack["q_j"] = self.reg_res_status[\
+					cur_inst_metadata["reg_source"]][-1]
+				issue_pack["r_k"] = True
+
+			elif "reg_source_k" in cur_inst_metadata:
+				issue_pack["q_j"] = self.reg_res_status[\
+					cur_inst_metadata["reg_source_j"]][-1]
+				issue_pack["q_k"] = self.reg_res_status[\
+					cur_inst_metadata["reg_source_k"]][-1]
+				issue_pack["r_k"] = issue_pack["q_k"] == 0
+
 			issue_pack["r_j"] = issue_pack["q_j"] == 0
-			issue_pack["r_k"] = True
 
 		else:
 			# Type J
@@ -353,21 +370,19 @@ class Scoreboard:
 
 			cur_func_unit_status_aux["busy"] = True
 			cur_func_unit_status_aux["op"] = cur_inst_pc
-			cur_func_unit_status_aux["f_i"] = issue_pack["f_i"]
-			cur_func_unit_status_aux["f_j"] = issue_pack["f_j"]
-			cur_func_unit_status_aux["f_k"] = issue_pack["f_k"]
-			cur_func_unit_status_aux["q_j"] = issue_pack["q_j"]
-			cur_func_unit_status_aux["q_k"] = issue_pack["q_k"]
-			cur_func_unit_status_aux["r_j"] = issue_pack["r_j"]
-			cur_func_unit_status_aux["r_k"] = issue_pack["r_k"]
-			cur_registers_status_aux[issue_pack["f_i"]] = cur_inst_func_unit
+
+			for field in issue_pack:
+				cur_func_unit_status_aux[field] = issue_pack[field]
+
+			if issue_pack["f_i"] is not None:
+				cur_registers_status_aux[issue_pack["f_i"]] = cur_inst_func_unit
+				changed_register_set.update({issue_pack["f_i"]})
 
 			changed_field_set.update({\
 				"busy", "op", "f_i", 
 				"f_j", "f_k", "q_j", 
 				"q_k", "r_j", "r_k"
 			})
-			changed_register_set.update({issue_pack["f_i"]})
 
 		elif cur_inst_stage == "read_operands":
 			"""
@@ -437,11 +452,12 @@ class Scoreboard:
 
 			# The destiny register of the current instruction
 			# does not depend of any functional unit anymore
-			cur_registers_status_aux[cur_inst_f_i] = 0
-			cur_func_unit_status_aux["busy"] = False
+			if cur_inst_f_i is not None:
+				cur_registers_status_aux[cur_inst_f_i] = 0
+				changed_register_set.update({cur_inst_f_i})
 
+			cur_func_unit_status_aux["busy"] = False
 			changed_field_set.update({"busy"})
-			changed_register_set.update({cur_inst_f_i})
 
 		# Mark the current clock cycle plus stage cost in the
 		# instruction status

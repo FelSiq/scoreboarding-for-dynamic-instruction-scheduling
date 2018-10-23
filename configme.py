@@ -45,6 +45,7 @@ class Config:
 
 	functional_units = {
 		"integer_alu" : {"quantity" : 1, "clock_cycles" : 1},
+		"load_store" : {"quantity" : 2, "clock_cycles" : 2},
 		"float_add_sub" : {"quantity" : 1, "clock_cycles" : 2},
 		"float_mult" : {"quantity" : 2, "clock_cycles" : 10},
 		"float_div" : {"quantity" : 1, "clock_cycles" : 40},
@@ -84,6 +85,11 @@ class Config:
 			"instruction_type" : "I",
 		},
 
+		"LW" : {
+			"functional_unit" : "load_store",
+			"instruction_type" : "I",
+		},
+
 		"MUL.D" : {
 			"functional_unit" : "float_mult",
 			"instruction_type" : "R",
@@ -103,7 +109,29 @@ class Config:
 			"functional_unit" : "float_add_sub",
 			"instruction_type" : "R",
 		},
+
+		"SW" : {
+			"functional_unit" : "integer_alu",
+			"instruction_type" : "I",
+		},
+
+		"ADDI" : {
+			"functional_unit" : "integer_alu",
+			"instruction_type" : "I",
+		},
+
+		"ADD" : {
+			"functional_unit" : "integer_alu",
+			"instruction_type" : "R",
+		},
 	}
+
+	# Set of instruction that store words in the main
+	# memory. You must specify these here because the
+	# instruction format of LOAD and STORE WORD instru-
+	# ctions are pretty much the same, but the semantic
+	# behind the registers are completely different.
+	store_instruction_set = {"SW"}
 	
 	"""
 		~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

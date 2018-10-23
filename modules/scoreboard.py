@@ -57,20 +57,25 @@ class Scoreboard:
 	def load_architecture(self, architecture):
 		self.func_unit_status = {
 			func_unit : {
-				"busy" : [False], 
-				"op": [-1],
-				"f_i": [None],
-				"f_j": [None],
-				"f_k": [None],
-				"q_j": [None],
-				"q_k": [None],
-				"r_j": [True],
-				"r_k": [True],
-				"update_timers": [{
-					"clock" : -1, 
-					"changed_fields" : set(),
-					"changed_register_set" : set(),
-				}],
+				func_unit_counter : {
+					"busy" : [False], 
+					"op": [-1],
+					"f_i": [None],
+					"f_j": [None],
+					"f_k": [None],
+					"q_j": [None],
+					"q_k": [None],
+					"r_j": [True],
+					"r_k": [True],
+					"update_timers": [{
+						"clock" : -1, 
+						"changed_fields" : set(),
+						"changed_register_set" : set(),
+					}],
+
+				} for func_unit_counter in \
+					range(architecture["functional_units"][func_unit]["quantity"])
+
 			} for func_unit in architecture["functional_units"]
 		}
 
@@ -106,6 +111,16 @@ class Scoreboard:
 
 		# Keep pointer to instruction list
 		self.instruction_list = instructions
+
+	def __get_cur_inst_replica_id(self, cur_inst_pc, cur_inst_func_unit):
+		# Recover the id of the functional unit replica
+		# used by the current instruction (in case it is
+		# not in the "issue" pipeline stage)
+		for replica_id in self.func_unit_status[cur_inst_func_unit]:
+			if self.func_unit_status[cur_inst_func_unit]\
+				[replica_id]["op"][-1] == cur_inst_pc:
+				return replica_id
+		return -1
 
 	def __check_inst_ready(self, cur_inst_pc, cur_inst_stage):
 		# Take into account scoreboarding wait tests +
@@ -147,6 +162,10 @@ class Scoreboard:
 		cur_inst_label = cur_inst_metadata["label"]
 		cur_inst_func_unit = cur_inst_metadata["functional_unit"]
 
+		if cur_inst_stage != "issue":
+			cur_inst_replica_id = self.__get_cur_inst_replica_id(\
+				cur_inst_pc, cur_inst_func_unit)
+
 		if cur_inst_stage == "issue":
 			"""
 				~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -154,9 +173,16 @@ class Scoreboard:
 				~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 			"""
 			cur_inst_reg_dest = cur_inst_metadata["reg_dest"]
-			if not self.func_unit_status[cur_inst_func_unit]["busy"][-1] and\
-				not self.reg_res_status[cur_inst_reg_dest][-1]:
-				return True
+			# Check if destiny register (f_i) is not being produced
+			# by another functional unit
+			if not self.reg_res_status[cur_inst_reg_dest][-1]:
+
+				# Check if there is at least one idle replica of this
+				# instruction desired functional unit
+				for replica_id in self.func_unit_status[cur_inst_func_unit]:
+					if not self.func_unit_status[cur_inst_func_unit]\
+						[replica_id]["busy"][-1]:
+						return True
 
 		elif cur_inst_stage == "read_operands":
 			"""
@@ -164,8 +190,10 @@ class Scoreboard:
 				Pipeline "Read Operands" stage
 				~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 			"""
-			if self.func_unit_status[cur_inst_func_unit]["r_j"][-1] and \
-				self.func_unit_status[cur_inst_func_unit]["r_k"][-1]:
+			if self.func_unit_status[cur_inst_func_unit]\
+				[cur_inst_replica_id]["r_j"][-1] and \
+				self.func_unit_status[cur_inst_func_unit]\
+				[cur_inst_replica_id]["r_k"][-1]:
 				return True
 
 		elif cur_inst_stage == "execution":
@@ -182,20 +210,23 @@ class Scoreboard:
 				Pipeline "Write Result" stage
 				~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 			"""
-			cur_inst_f_i = self.func_unit_status[cur_inst_func_unit]["f_i"][-1]
+			cur_inst_f_i = self.func_unit_status[cur_inst_func_unit]\
+				[cur_inst_replica_id]["f_i"][-1]
 
 			for loop_func_unit_label in self.func_unit_status:
-				loop_cur_func_unit = self.func_unit_status[loop_func_unit_label]
+				for replica_id in self.func_unit_status[loop_func_unit_label]:
+					loop_cur_func_unit = self.func_unit_status\
+						[loop_func_unit_label][replica_id]
 
-				if len(loop_cur_func_unit["f_j"]) and \
-					loop_cur_func_unit["f_j"][-1] == cur_inst_f_i and\
-					loop_cur_func_unit["r_j"][-1]:
-					return False
+					if len(loop_cur_func_unit["f_j"]) and \
+						loop_cur_func_unit["f_j"][-1] == cur_inst_f_i and\
+						loop_cur_func_unit["r_j"][-1]:
+						return False
 
-				if len(loop_cur_func_unit["f_k"]) and \
-					loop_cur_func_unit["f_k"][-1] == cur_inst_f_i and\
-					loop_cur_func_unit["r_k"][-1]:
-					return False
+					if len(loop_cur_func_unit["f_k"]) and \
+						loop_cur_func_unit["f_k"][-1] == cur_inst_f_i and\
+						loop_cur_func_unit["r_k"][-1]:
+						return False
 
 			return True
 
@@ -255,19 +286,50 @@ class Scoreboard:
 			cur_inst_pc // self.word_size]
 		cur_inst_label = cur_inst_metadata["label"]
 		cur_inst_func_unit = cur_inst_metadata["functional_unit"]
-		cur_func_unit_status = self.func_unit_status[cur_inst_func_unit]
 
+		if cur_inst_stage != "issue":
+			# Find which functional unit replica the
+			# current instruction was allocated in
+			# "issue" pipeline stage
+			cur_inst_replica_id = self.__get_cur_inst_replica_id(\
+				cur_inst_pc, cur_inst_func_unit)
+		else:
+			# Find the next idle functional unit replica of the
+			# desired type for the current instruction at the
+			# "issue" pipeline stage
+			for replica_id in self.func_unit_status[cur_inst_func_unit]:
+				if not self.func_unit_status[cur_inst_func_unit][replica_id]["busy"][-1]:
+					cur_inst_replica_id = replica_id
+					break
+
+		cur_func_unit_status = self.func_unit_status\
+			[cur_inst_func_unit][cur_inst_replica_id]
+
+		"""
+			~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+			Setting auxiliary structure up section
+			~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+		"""
 		# Auxiliary data structure to keep all changes of
 		# the current clock to prevent interference between
 		# instructions within the same clock cycle
-		self.__to_commit_this_clock[cur_inst_func_unit] = {
-			"fields" : {},
-			"registers" : {},
-		}
+		if cur_inst_func_unit not in self.__to_commit_this_clock:
+			self.__to_commit_this_clock[cur_inst_func_unit] = {}
+		if cur_inst_replica_id not in self.__to_commit_this_clock[cur_inst_func_unit]:
+			self.__to_commit_this_clock[cur_inst_func_unit][cur_inst_replica_id] = {
+				"fields" : {},
+				"registers" : {},
+			}
 		cur_func_unit_status_aux = self.__to_commit_this_clock\
-			[cur_inst_func_unit]["fields"]
+			[cur_inst_func_unit][cur_inst_replica_id]["fields"]
 		cur_registers_status_aux = self.__to_commit_this_clock\
-			[cur_inst_func_unit]["registers"]
+			[cur_inst_func_unit][cur_inst_replica_id]["registers"]
+
+		"""
+			~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+			Finished setting auxiliary structure up
+			~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+		"""
 
 		# Keep track of which scoreboard field are changed
 		# in this bookkepping call
@@ -338,34 +400,37 @@ class Scoreboard:
 			# current functional unit finalize for any of
 			# the operand register, set the ready flags to true
 			for loop_func_unit_label in self.func_unit_status:
-				loop_cur_func_unit = self.func_unit_status[loop_func_unit_label]
+				for replica_id in self.func_unit_status[loop_func_unit_label]:
+					loop_cur_func_unit = self.func_unit_status[loop_func_unit_label][replica_id]
 
-				if loop_func_unit_label not in self.__to_commit_this_clock:
-					self.__to_commit_this_clock[loop_func_unit_label] = {\
-						"fields" : {},
-						"registers" : {},
+					if loop_func_unit_label not in self.__to_commit_this_clock:
+						self.__to_commit_this_clock[loop_func_unit_label] = {}
+					if replica_id not in self.__to_commit_this_clock[loop_func_unit_label]:
+						self.__to_commit_this_clock[loop_func_unit_label][replica_id] = {\
+							"fields" : {},
+							"registers" : {},
+						}
+
+					loop_cur_func_unit_aux = self.__to_commit_this_clock\
+						[loop_func_unit_label][replica_id]["fields"]
+						
+					loop_cur_changed_field_set = set()
+
+					if len(loop_cur_func_unit["q_k"]) and\
+						loop_cur_func_unit["q_k"][-1] == cur_inst_func_unit:
+						loop_cur_func_unit_aux["r_k"] = True
+						loop_cur_changed_field_set.update({"r_k"})
+
+					if len(loop_cur_func_unit["q_j"]) and\
+						loop_cur_func_unit["q_j"][-1] == cur_inst_func_unit:
+						loop_cur_func_unit_aux["r_j"] = True
+						loop_cur_changed_field_set.update({"r_j"})
+
+					loop_cur_func_unit_aux["update_timers"] = {\
+						"clock" : self.global_clock_timer,
+						"changed_fields" : loop_cur_changed_field_set,
+						"changed_register_set" : set(),
 					}
-
-				loop_cur_func_unit_aux = self.__to_commit_this_clock\
-					[loop_func_unit_label]["fields"]
-					
-				loop_cur_changed_field_set = set()
-
-				if len(loop_cur_func_unit["q_k"]) and\
-					loop_cur_func_unit["q_k"][-1] == cur_inst_func_unit:
-					loop_cur_func_unit_aux["r_k"] = True
-					loop_cur_changed_field_set.update({"r_k"})
-
-				if len(loop_cur_func_unit["q_j"]) and\
-					loop_cur_func_unit["q_j"][-1] == cur_inst_func_unit:
-					loop_cur_func_unit_aux["r_j"] = True
-					loop_cur_changed_field_set.update({"r_j"})
-
-				loop_cur_func_unit_aux["update_timers"] = {\
-					"clock" : self.global_clock_timer,
-					"changed_fields" : loop_cur_changed_field_set,
-					"changed_register_set" : set(),
-				}
 
 			# Current functional unit current register
 			cur_inst_f_i = cur_func_unit_status["f_i"][-1]
@@ -468,18 +533,20 @@ class Scoreboard:
 
 			# Commit all changes made in the current clock
 			for func_unit_label in self.__to_commit_this_clock:
-				cur_func_unit_changes = self.__to_commit_this_clock[func_unit_label]
-				cur_func_unit_status = self.func_unit_status[func_unit_label]
-				# Do fields changes
-				cur_f_u_field_changes = cur_func_unit_changes["fields"]
-				for field in cur_f_u_field_changes:
-					cur_func_unit_status[field].append(cur_f_u_field_changes[field])
+				for replica_id in self.__to_commit_this_clock[func_unit_label]:
+					cur_func_unit_changes = self.__to_commit_this_clock[func_unit_label][replica_id]
+					cur_func_unit_status = self.func_unit_status[func_unit_label][replica_id]
 
-				# Do register changes
-				cur_f_u_reg_changes = cur_func_unit_changes["registers"]
-				for register_label in cur_f_u_reg_changes:
-					self.reg_res_status[register_label].append(\
-						cur_f_u_reg_changes[register_label])
+					# Do fields changes
+					cur_f_u_field_changes = cur_func_unit_changes["fields"]
+					for field in cur_f_u_field_changes:
+						cur_func_unit_status[field].append(cur_f_u_field_changes[field])
+
+					# Do register changes
+					cur_f_u_reg_changes = cur_func_unit_changes["registers"]
+					for register_label in cur_f_u_reg_changes:
+						self.reg_res_status[register_label].append(\
+							cur_f_u_reg_changes[register_label])
 
 			# Clean up all changes
 			self.__to_commit_this_clock = {}

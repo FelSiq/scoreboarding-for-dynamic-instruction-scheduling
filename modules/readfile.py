@@ -11,6 +11,7 @@ import sys
 sys.path.insert(0, "../")
 from configme import Config
 import re
+from collections import OrderedDict
 
 class ReadFile:
 	"""
@@ -128,20 +129,20 @@ class ReadFile:
 			""", re.VERBOSE)
 
 		self.re_list_matchers = {
-			"R" : {
-				"common" : re_readinst_type_r,
-			},
+			"R" : OrderedDict([
+				("common", re_readinst_type_r),
+			]),
 
-			"I" : {
-				"common" : re_readinst_type_i_common,
-				"lw_sw" : re_readinst_type_i_lw_sw,
-				"branch_1" : re_readinst_type_i_branch_1,
-				"branch_2" : re_readinst_type_i_branch_2,
-			},
+			"I" : OrderedDict([
+				("common", re_readinst_type_i_common),
+				("lw_sw", re_readinst_type_i_lw_sw),
+				("branch_1", re_readinst_type_i_branch_1),
+				("branch_2", re_readinst_type_i_branch_2),
+			]),
 
-			"J" : {
-				"common" : re_readinst_type_j,
-			},
+			"J" : OrderedDict([
+				("common", re_readinst_type_j),
+			]),
 		}
 
 	def __instexception(self, inst_label, program_line_counter, word_size):

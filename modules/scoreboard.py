@@ -176,7 +176,7 @@ class Scoreboard:
 				cur_inst_reg_dest = cur_inst_metadata["reg_dest"]
 			else:
 				cur_inst_reg_dest = None
-
+			
 			# Check if destiny register (f_i) is not being produced
 			# by another functional unit
 			if cur_inst_reg_dest is None or not self.reg_res_status[cur_inst_reg_dest][-1]:
@@ -310,10 +310,12 @@ class Scoreboard:
 			# "issue" pipeline stage
 			cur_inst_replica_id = self.__get_cur_inst_replica_id(\
 				cur_inst_pc, cur_inst_func_unit)
+
 		else:
 			# Find the next idle functional unit replica of the
 			# desired type for the current instruction at the
 			# "issue" pipeline stage
+			cur_inst_replica_id = -1
 			for replica_id in self.func_unit_status[cur_inst_func_unit]:
 				if not self.func_unit_status[cur_inst_func_unit][replica_id]["busy"][-1]:
 					cur_inst_replica_id = replica_id
@@ -375,7 +377,8 @@ class Scoreboard:
 				cur_func_unit_status_aux[field] = issue_pack[field]
 
 			if issue_pack["f_i"] is not None:
-				cur_registers_status_aux[issue_pack["f_i"]] = cur_inst_func_unit
+				cur_registers_status_aux[issue_pack["f_i"]] =\
+					(cur_inst_func_unit, cur_inst_replica_id)
 				changed_register_set.update({issue_pack["f_i"]})
 
 			changed_field_set.update({\
@@ -432,12 +435,12 @@ class Scoreboard:
 					loop_cur_changed_field_set = set()
 
 					if len(loop_cur_func_unit["q_k"]) and\
-						loop_cur_func_unit["q_k"][-1] == cur_inst_func_unit:
+						loop_cur_func_unit["q_k"][-1] == (cur_inst_func_unit, cur_inst_replica_id):
 						loop_cur_func_unit_aux["r_k"] = True
 						loop_cur_changed_field_set.update({"r_k"})
 
 					if len(loop_cur_func_unit["q_j"]) and\
-						loop_cur_func_unit["q_j"][-1] == cur_inst_func_unit:
+						loop_cur_func_unit["q_j"][-1] == (cur_inst_func_unit, cur_inst_replica_id):
 						loop_cur_func_unit_aux["r_j"] = True
 						loop_cur_changed_field_set.update({"r_j"})
 

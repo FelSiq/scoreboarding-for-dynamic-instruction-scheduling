@@ -39,6 +39,13 @@ class TextualInterface:
 			for replica_id in func_unit_status[fu_label]
 		]) + 2
 
+		self.__fu_fill_custom_spacing = {
+			label : self.__fu_fill_len_labels
+			for label in self.__fu_print_order
+		}
+		self.__fu_fill_custom_spacing["q_j"] = self.__fu_fill_len_fus
+		self.__fu_fill_custom_spacing["q_k"] = self.__fu_fill_len_fus
+
 		self.__max_pc_len = len(str(max_pc)) + 1
 
 		self.__ommited_reg_count = sum([
@@ -69,13 +76,27 @@ class TextualInterface:
 			fill=self.__fu_fill_len_fus), end=": ")
 		for print_label in self.__fu_print_order:
 			print("{:^{fill}}".format(\
-				print_label, fill=self.__fu_fill_len_labels), end="|")
+				print_label, fill=self.__fu_fill_custom_spacing[print_label]), end="|")
 		print()
 
 		for func_unit_label in func_unit_status:
 			for replica_id in func_unit_status[func_unit_label]:
 				cur_func_unit_status = func_unit_status[func_unit_label][replica_id]
 				cur_update_timers = cur_func_unit_status["update_timers"]
+				fu_index = index_holder[func_unit_label][replica_id]["fu_index"]
+
+				if fu_index < len(cur_update_timers)-1 and\
+					cur_update_timers[fu_index+1]["clock"] <= clock:
+					index_holder[func_unit_label][replica_id]["fu_index"] += 1
+					fu_index += 1
+
+				if cur_update_timers[fu_index]["clock"] == clock:
+					for changed_field_label in cur_update_timers[fu_index]["changed_fields"]:
+						if index_holder[func_unit_label][replica_id]\
+							["field_index"][changed_field_label] < \
+							len(cur_func_unit_status[changed_field_label])-1:
+							index_holder[func_unit_label][replica_id]\
+								["field_index"][changed_field_label] += 1
 
 				# Functional unit name concatenated with its
 				# id between each replicas
@@ -84,21 +105,21 @@ class TextualInterface:
 					fill=self.__fu_fill_len_fus), end=": ")
 
 				for table_label in self.__fu_print_order:
-					print_index = index_holder[func_unit_label][replica_id][table_label]
-
-					if print_index < len(cur_func_unit_status[table_label])-1 and\
-						table_label in cur_update_timers[print_index+1]["changed_fields"] and\
-						cur_update_timers[print_index+1]["clock"] <= clock:
-						index_holder[func_unit_label][replica_id][table_label] += 1
-						print_index += 1
+					print_index = index_holder[func_unit_label]\
+						[replica_id]["field_index"][table_label]
 
 					val = cur_func_unit_status[table_label][print_index]
+					if type(val) == type(()):
+						val = "_".join(map(str, val))
 					val = str(val) if val is not None else "-"
-					prev_clock = cur_update_timers[print_index]["clock"]
-					color = Fore.RED if prev_clock != clock else Fore.GREEN
+					color = Fore.GREEN if \
+						(table_label in cur_update_timers[fu_index]["changed_fields"] and \
+						cur_update_timers[fu_index]["clock"] == clock)\
+						else Fore.RED
+
 					print(color + \
 						"{:^{fill}}".format(val if val else " ", 
-						fill=self.__fu_fill_len_labels) +\
+						fill=self.__fu_fill_custom_spacing[table_label]) +\
 						Style.RESET_ALL, end="|")
 				print()
 
@@ -114,8 +135,11 @@ class TextualInterface:
 			"fields" : {
 				func_unit : {
 					replica_id : {
-						field_label : 0
-						for field_label in ans["func_unit_status"][func_unit][replica_id]
+						"field_index" : {
+							field_label : 0
+							for field_label in ans["func_unit_status"][func_unit][replica_id]
+						},
+						"fu_index" : 0,
 					} for replica_id in ans["func_unit_status"][func_unit]
 				} for func_unit in ans["func_unit_status"]
 			},
@@ -130,20 +154,20 @@ class TextualInterface:
 			"""
 				Instruction status table
 			"""
-			print(item_symbol, "Instruction status table:")
+			print("\n", item_symbol, "Instruction status table:")
 			self.__inst_status_table(ans["inst_status"], clock)
 
 			"""
 				Functional Unit status table
 			"""
-			print(item_symbol, "Functional Unit status table:")
+			print("\n", item_symbol, "Functional Unit status table:")
 			self.__func_unit_table(ans["func_unit_status"], 
 				clock, index_holder["fields"])
 
 			"""
 				Destiny Register status table
 			"""
-			print(item_symbol, "Destiny Register status table:")
+			print("\n", item_symbol, "Destiny Register status table:")
 			self.__reg_dest_table(ans["reg_dest_status"], 
 				clock, index_holder["registers"])
 

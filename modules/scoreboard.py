@@ -382,7 +382,7 @@ class Scoreboard:
 					(cur_inst_func_unit, cur_inst_replica_id)
 				changed_register_set.update({issue_pack["f_i"]})
 
-			changed_field_set.update({\
+			changed_field_set.update({
 				"busy", "op", "f_i", 
 				"f_j", "f_k", "q_j", 
 				"q_k", "r_j", "r_k"

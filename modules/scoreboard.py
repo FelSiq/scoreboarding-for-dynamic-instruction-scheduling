@@ -47,6 +47,7 @@ class Scoreboard:
 		]
 
 		self.global_clock_timer = 0
+		self.update_timers = []
 		
 		# Auxiliar structure to accumulate all changes in the 
 		# current clock cycle in order to prevent interferences 
@@ -444,11 +445,12 @@ class Scoreboard:
 						loop_cur_func_unit_aux["r_j"] = True
 						loop_cur_changed_field_set.update({"r_j"})
 
-					loop_cur_func_unit_aux["update_timers"] = {\
-						"clock" : self.global_clock_timer,
-						"changed_fields" : loop_cur_changed_field_set,
-						"changed_register_set" : set(),
-					}
+					if loop_cur_changed_field_set:
+						loop_cur_func_unit_aux["update_timers"] = {\
+							"clock" : self.global_clock_timer,
+							"changed_fields" : loop_cur_changed_field_set,
+							"changed_register_set" : set(),
+						}
 
 			# Current functional unit current register
 			cur_inst_f_i = cur_func_unit_status["f_i"][-1]
@@ -470,11 +472,12 @@ class Scoreboard:
 		# Keep track of which clock corresponds to
 		# the current change in order to print corre-
 		# ctly after process ends
-		cur_func_unit_status_aux["update_timers"] = {\
-			"clock" : self.global_clock_timer,
-			"changed_fields" : changed_field_set,
-			"changed_registers" : changed_register_set,
-		}
+		if changed_field_set or changed_register_set:
+			cur_func_unit_status_aux["update_timers"] = {\
+				"clock" : self.global_clock_timer,
+				"changed_fields" : changed_field_set,
+				"changed_registers" : changed_register_set,
+			}
 		
 		# Check if instruction was completed
 		if cur_inst_stage != self.PIPELINE_STAGES[-1]:
@@ -551,21 +554,30 @@ class Scoreboard:
 							cur_min_pc = cur_max_pc = self.program_size
 
 			# Commit all changes made in the current clock
-			for func_unit_label in self.__to_commit_this_clock:
-				for replica_id in self.__to_commit_this_clock[func_unit_label]:
-					cur_func_unit_changes = self.__to_commit_this_clock[func_unit_label][replica_id]
-					cur_func_unit_status = self.func_unit_status[func_unit_label][replica_id]
+			if self.__to_commit_this_clock:
+				# Keep track of which clock cycles correspond
+				# to a change in the scoreboard structure to
+				# made user interface easier to implement
+				self.update_timers.append(self.global_clock_timer)
 
-					# Do fields changes
-					cur_f_u_field_changes = cur_func_unit_changes["fields"]
-					for field in cur_f_u_field_changes:
-						cur_func_unit_status[field].append(cur_f_u_field_changes[field])
+				for func_unit_label in self.__to_commit_this_clock:
+					for replica_id in self.__to_commit_this_clock[func_unit_label]:
+						cur_func_unit_changes = \
+							self.__to_commit_this_clock[func_unit_label][replica_id]
+						cur_func_unit_status = \
+							self.func_unit_status[func_unit_label][replica_id]
 
-					# Do register changes
-					cur_f_u_reg_changes = cur_func_unit_changes["registers"]
-					for register_label in cur_f_u_reg_changes:
-						self.reg_res_status[register_label].append(\
-							cur_f_u_reg_changes[register_label])
+						# Do fields changes
+						cur_f_u_field_changes = cur_func_unit_changes["fields"]
+						for field in cur_f_u_field_changes:
+							cur_func_unit_status[field].append(\
+								cur_f_u_field_changes[field])
+
+						# Do register changes
+						cur_f_u_reg_changes = cur_func_unit_changes["registers"]
+						for register_label in cur_f_u_reg_changes:
+							self.reg_res_status[register_label].append(\
+								cur_f_u_reg_changes[register_label])
 
 			# Clean up all changes
 			self.__to_commit_this_clock = {}
@@ -574,6 +586,8 @@ class Scoreboard:
 		ans = {
 			"inst_status" : self.inst_status,
 			"func_unit_status" : self.func_unit_status,
+			"reg_dest_status" : self.reg_res_status,
+			"update_timers" : self.update_timers,
 		}
 
 		return ans

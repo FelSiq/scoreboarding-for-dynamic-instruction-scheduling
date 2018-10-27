@@ -44,7 +44,7 @@ class Config:
 	"""
 
 	functional_units = {
-		"integer_alu" : {"quantity" : 1, "clock_cycles" : 1},
+		"integer_alu" : {"quantity" : 2, "clock_cycles" : 1},
 		"load_store" : {"quantity" : 2, "clock_cycles" : 2},
 		"float_add_sub" : {"quantity" : 1, "clock_cycles" : 2},
 		"float_mult" : {"quantity" : 2, "clock_cycles" : 10},
@@ -111,7 +111,7 @@ class Config:
 		},
 
 		"SW" : {
-			"functional_unit" : "integer_alu",
+			"functional_unit" : "load_store",
 			"instruction_type" : "I",
 		},
 
@@ -176,7 +176,12 @@ class Config:
 	# Size, in bytes, of a single word size
 	WORD_SIZE = 4
 
-	# List here all register implemented in the architecture
+	"""
+		List here all registers implemented in the 
+		architecture. If the flag "-regforce" is
+		enabled, then all instructions must use
+		only registers previously declared here.
+	"""
 	architecture_register_set = {
-		"F" + str(i) for i in range(32)
-	}.union({"R" + str(i) for i in range(32)})
+		"$" + str(i) for i in range(1, 32)
+	}.union({"$f" + str(i) for i in range(32)})

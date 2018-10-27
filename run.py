@@ -1,13 +1,17 @@
 from configme import Config
 from modules.readfile import ReadFile
 from modules.scoreboard import Scoreboard
+from modules.interface import TextualInterface
 
 if __name__ == "__main__":
 	import sys
 
 	if len(sys.argv) < 2:
-		print("usage:", sys.argv[0], "<source_code_filepath>")
+		print("usage:", sys.argv[0], "<source_code_filepath> [-checkreg] [-nogui]")
 		exit(1)
+
+	checkreg = "-checkreg" in sys.argv
+	nogui = "-nogui" in sys.argv
 
 	rf = ReadFile()
 
@@ -16,7 +20,10 @@ if __name__ == "__main__":
 
 	# Load instructions from given assembly input
 	# file source code
-	inst_list = rf.load_instructions(sys.argv[1], architecture)
+	inst_list = rf.load_instructions(\
+		sys.argv[1], 
+		architecture, 
+		verify_reg=checkreg)
 
 	sc = Scoreboard()
 
@@ -28,12 +35,6 @@ if __name__ == "__main__":
 
 	ans = sc.run()
 	
-	print_order = ["issue", "read_operands",
-		"execution", "write_result"]
-
-	inst_status = ans["inst_status"]
-	for pc in sorted(list(inst_status.keys())):
-		print(pc, end="\t:\t")
-		for stage_id in range(len(print_order)):
-			print(inst_status[pc][print_order[stage_id]], end="\t")
-		print()
+	if nogui:
+		ti = TextualInterface(ans)
+		ti.print_answer(ans)

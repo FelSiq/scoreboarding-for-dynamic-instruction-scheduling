@@ -154,7 +154,16 @@ class ReadFile:
 		register_label, 
 		architecture, 
 		program_line_counter, 
-		force=False):
+		verify=True):
+
+		if not verify:
+			# If "verify" is disabled, then accept
+			# all registers even if it wasn't declared
+			# previsusly in the architecture
+			if register_label not in architecture["registers"]:
+				architecture["registers"].update({register_label})
+
+			return register_label
 
 		"""
 			Check if a register is in the register back
@@ -163,7 +172,7 @@ class ReadFile:
 			will be accepted even if it is not in the
 			architecture specification
 		"""
-		if register_label in architecture["registers"] or force:
+		if register_label in architecture["registers"]:
 			return register_label
 
 		raise Exception("Unknown register label \"" + register_label +\
@@ -228,7 +237,7 @@ class ReadFile:
 
 		return architecture
 
-	def load_instructions(self, filepath, architecture):
+	def load_instructions(self, filepath, architecture, verify_reg=True):
 		"""
 			~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 			Input file format:
@@ -350,11 +359,11 @@ class ReadFile:
 									~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 								"""
 								inst_pack["reg_dest"] = self.__checkreg(match.group(2), 
-									architecture, program_line_counter)
+									architecture, program_line_counter, verify=verify_reg)
 								inst_pack["reg_source_j"] = self.__checkreg(match.group(3),
-									architecture, program_line_counter)
+									architecture, program_line_counter, verify=verify_reg)
 								inst_pack["reg_source_k"] = self.__checkreg(match.group(4),
-									architecture, program_line_counter)
+									architecture, program_line_counter, verify=verify_reg)
 
 							elif inst_type == "I":
 								"""
@@ -376,37 +385,37 @@ class ReadFile:
 									if inst_pack["label"] in Config.store_instruction_set:
 										# Store Word operations (does not have a destiny register)
 										inst_pack["reg_source_k"] = self.__checkreg(match.group(2),
-											architecture, program_line_counter)
+											architecture, program_line_counter, verify=verify_reg)
 										inst_pack["immediate"] = match.group(3)
 										inst_pack["reg_source_j"] = self.__checkreg(match.group(4), 
-											architecture, program_line_counter)
+											architecture, program_line_counter, verify=verify_reg)
 										
 									else:
 										# Load Word operations
 										inst_pack["reg_dest"] = self.__checkreg(match.group(2),
-											architecture, program_line_counter)
+											architecture, program_line_counter, verify=verify_reg)
 										inst_pack["immediate"] = match.group(3)
 										inst_pack["reg_source"] = self.__checkreg(match.group(4), 
-											architecture, program_line_counter)
+											architecture, program_line_counter, verify=verify_reg)
 
 								elif matcher_variant == "common":
 									inst_pack["reg_dest"] = self.__checkreg(match.group(2),
-										architecture, program_line_counter)
+										architecture, program_line_counter, verify=verify_reg)
 									inst_pack["reg_source"] = self.__checkreg(match.group(3), 
-										architecture, program_line_counter)
+										architecture, program_line_counter, verify=verify_reg)
 									inst_pack["immediate"] = match.group(4)
 
 								elif matcher_variant == "branch_1":
 									inst_pack["reg_source"] = self.__checkreg(match.group(2),
-										architecture, program_line_counter)
+										architecture, program_line_counter, verify=verify_reg)
 									inst_pack["immediate"] = match.group(3)
 
 								else:
 									# matcher_variant == "branch_2"
 									inst_pack["reg_source_j"] = self.__checkreg(match.group(2),
-										architecture, program_line_counter)
+										architecture, program_line_counter, verify=verify_reg)
 									inst_pack["reg_source_k"] = self.__checkreg(match.group(3),
-										architecture, program_line_counter)
+										architecture, program_line_counter, verify=verify_reg)
 									inst_pack["immediate"] = match.group(4)
 
 							else:

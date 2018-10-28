@@ -449,7 +449,7 @@ class Scoreboard:
 						loop_cur_func_unit_aux["update_timers"] = {\
 							"clock" : self.global_clock_timer,
 							"changed_fields" : loop_cur_changed_field_set,
-							"changed_register_set" : set(),
+							"changed_registers" : set(),
 						}
 
 			# Current functional unit current register

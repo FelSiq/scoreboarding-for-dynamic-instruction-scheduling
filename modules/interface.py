@@ -1,5 +1,4 @@
 from colorama import Fore, Style, init as colorama_init
-from numpy import array
 """
 	Module dedicated to produce all program
 	output if option "-nogui" is enabled by the

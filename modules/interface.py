@@ -75,6 +75,17 @@ class TextualInterface:
 			for reg_label in reg_status
 		])
 
+		# Decoration for functional unit table (horizontal line)
+		self.__FU_HORIZ_LINE = (self.__fu_fill_len_fus + 2 +\
+			len(self.__fu_fill_custom_spacing) +\
+			sum(self.__fu_fill_custom_spacing.values())) * "-"
+
+		# Same as above, but this time for the instruction status
+		# table
+		self.__INST_HORIZ_LINE = (1 + self.__max_pc_len +\
+			(self.__inst_fill_len + 1) * \
+			len(self.__inst_print_order)) * "-"
+
 	def __inst_status_table(self, 
 		inst_status, 
 		clock, 
@@ -85,12 +96,13 @@ class TextualInterface:
 			START OF Instruction status table Header
 			~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 		"""
+		print(self.__INST_HORIZ_LINE)
 		print("{val:<{fill}}".format(val="PC", 
 			fill=self.__max_pc_len), end=":")
 		for print_label in self.__inst_print_order:
 			print("{:^{fill}}".format(\
 				print_label, fill=self.__inst_fill_len), end="|")
-		print()
+		print("\n", self.__INST_HORIZ_LINE, sep="")
 		"""
 			~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 			END OF Instruction status table Header
@@ -117,6 +129,7 @@ class TextualInterface:
 			END OF Instruction status table body
 			~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 		"""
+		print(self.__INST_HORIZ_LINE)
 
 	def __update_print_indexes(self, 
 		cur_func_unit_status,
@@ -193,6 +206,7 @@ class TextualInterface:
 			START OF Functional unit status table Header
 			~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 		"""
+		print(self.__FU_HORIZ_LINE)
 		print("{val:<{fill}}".format(val="Functional unit", 
 			fill=self.__fu_fill_len_fus), end=": ")
 		for print_label in self.__fu_print_order:
@@ -200,7 +214,7 @@ class TextualInterface:
 				print_label, 
 				fill=self.__fu_fill_custom_spacing[print_label]), 
 				end="|")
-		print()
+		print("\n", self.__FU_HORIZ_LINE, sep="")
 		"""
 			~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 			END OF Functional unit status table Header
@@ -273,6 +287,7 @@ class TextualInterface:
 			END OF Functional unit status table Body
 			~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 		"""
+		print(self.__FU_HORIZ_LINE)
 
 		return reg_labels_to_update
 
@@ -306,7 +321,7 @@ class TextualInterface:
 		ans, 
 		decorate="~", 
 		item_symbol="->", 
-		quantity=50,
+		quantity=100,
 		colored=True):
 
 		colorama_init()
@@ -347,7 +362,10 @@ class TextualInterface:
 				Instruction status table
 			"""
 			print("\n", item_symbol, "Instruction status table:")
-			self.__inst_status_table(ans["inst_status"], clock, colored)
+			self.__inst_status_table(
+				ans["inst_status"], 
+				clock, 
+				colored and clock != final_clock_val)
 
 			"""
 				Functional Unit status table
@@ -357,22 +375,27 @@ class TextualInterface:
 				clock, 
 				index_holder["fields"], 
 				index_holder["registers"], 
-				colored)
+				colored and clock != final_clock_val)
 
 			"""
 				Destiny Register status table
 			"""
 			print("\n", item_symbol, "Destiny Register status table:")
 			self.__reg_dest_table(ans["reg_dest_status"], 
-				clock, index_holder["registers"], colored)
+				clock, 
+				index_holder["registers"], 
+				colored and clock != final_clock_val)
 
 	def print_answer(self, 
 		ans, 
 		decorate="~", 
 		item_symbol="->", 
-		quantity=50,
+		quantity=-1,
 		full=False,
 		colored=True):
+
+		if quantity <= 0:
+			quantity = len(self.__FU_HORIZ_LINE)
 
 		if full:
 			self.__full_output(

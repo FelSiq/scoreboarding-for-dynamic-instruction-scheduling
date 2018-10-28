@@ -280,6 +280,8 @@ class Scoreboard:
 				issue_pack["r_k"] = True
 
 			elif "reg_source_k" in cur_inst_metadata:
+				issue_pack["f_j"] = cur_inst_metadata["reg_source_j"]
+				issue_pack["f_k"] = cur_inst_metadata["reg_source_k"]
 				issue_pack["q_j"] = self.reg_res_status[\
 					cur_inst_metadata["reg_source_j"]][-1]
 				issue_pack["q_k"] = self.reg_res_status[\

@@ -22,10 +22,11 @@ if __name__ == "__main__":
 			--complete	: produce step-by-step output for Instruction, Functional Units and Register status tables.
 			--nocolor	: produce all output with just standard terminal color. 
 					Makes sense only if used together with "--complete" flag.
-			--noufstage	: disable the "update_flags" pipeline stage, used to prevent deadlocks in RAW dependencies if two 
-					instructions in the ("write_result", "read_operands") pipeline stages pair matches in the same 
-					clock cycle. The functional unit flag updating will be done in the "write_result" pipeline stage 
-					instead.
+			--noufstage	: disable the "update_flags" pipeline stage, used to prevent deadlocks in RAW dependencies 
+					if two instructions in the ("write_result", "read_operands") pipeline stages pair matches in 
+					the same clock cycle while the first one write in a register and the second one read from it. 
+					If this flag is enabled, the functional unit flag updating  will be done in the "write_result" 
+					pipeline stage instead.
 			"""))
 		exit(1)
 

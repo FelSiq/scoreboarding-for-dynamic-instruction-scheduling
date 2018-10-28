@@ -148,6 +148,7 @@ class Config:
 		"issue" : 1,
 		"read_operands" : 1,
 		"write_result" : 1,
+		"update_flags" : 1,
 	}
 
 	"""

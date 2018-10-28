@@ -33,7 +33,7 @@ class Scoreboard:
 		Indicates which functional unit will write in which 
 		destiny register, if any.
 	"""
-	def __init__(self):
+	def __init__(self, update_flags_stage=True):
 		self.func_unit_status = None
 		self.reg_res_status = None
 		self.inst_status = None
@@ -45,6 +45,14 @@ class Scoreboard:
 			"execution", 
 			"write_result"
 		]
+
+		# Additional pipeline stage to avoid deadlock
+		# by ("read operands", "write result") stage pair
+		# in the same clock cycle between two instructions 
+		# with RAW dependency (first instruction write and
+		# second instruction read a same register)
+		if update_flags_stage:
+			self.PIPELINE_STAGES.append("update_flags")
 
 		self.global_clock_timer = 0
 		self.update_timers = []
@@ -210,7 +218,7 @@ class Scoreboard:
 			"""
 			return True
 
-		else:
+		elif cur_inst_stage == "write_result":
 			"""
 				~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 				Pipeline "Write Result" stage
@@ -235,6 +243,13 @@ class Scoreboard:
 							loop_cur_func_unit["r_k"][-1]:
 							return False
 
+			return True
+		else:
+			"""
+				~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+				Pipeline "Update Flags" stage
+				~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+			"""
 			return True
 
 		# Return False by default
@@ -295,6 +310,48 @@ class Scoreboard:
 			pass
 
 		return issue_pack
+
+	def __update_flags(self, cur_inst_func_unit, cur_inst_replica_id):
+		# For all functional units waiting for the
+		# current functional unit finalize for any of
+		# the operand register, set the ready flags to true
+		for loop_func_unit_label in self.func_unit_status:
+			for loop_replica_id in self.func_unit_status[loop_func_unit_label]:
+				loop_cur_func_unit = self.func_unit_status\
+					[loop_func_unit_label][loop_replica_id]
+
+				if loop_func_unit_label not in self.__to_commit_this_clock:
+					self.__to_commit_this_clock[loop_func_unit_label] = {}
+				if loop_replica_id not in self.__to_commit_this_clock[loop_func_unit_label]:
+					self.__to_commit_this_clock[loop_func_unit_label][loop_replica_id] = {
+						"fields" : {},
+						"registers" : {},
+					}
+
+				loop_cur_func_unit_aux = self.__to_commit_this_clock\
+					[loop_func_unit_label][loop_replica_id]["fields"]
+					
+				loop_cur_changed_field_set = set()
+
+				if len(loop_cur_func_unit["q_k"]) and\
+					loop_cur_func_unit["q_k"][-1] == \
+						(cur_inst_func_unit, cur_inst_replica_id):
+					loop_cur_func_unit_aux["r_k"] = True
+					loop_cur_changed_field_set.update({"r_k"})
+
+				if len(loop_cur_func_unit["q_j"]) and\
+					loop_cur_func_unit["q_j"][-1] == \
+						(cur_inst_func_unit, cur_inst_replica_id):
+					loop_cur_func_unit_aux["r_j"] = True
+					loop_cur_changed_field_set.update({"r_j"})
+
+				if loop_cur_changed_field_set:
+					loop_cur_func_unit_aux["update_timers"] = {\
+						"clock" : self.global_clock_timer,
+						"changed_fields" : loop_cur_changed_field_set,
+						"changed_registers" : set(),
+					}
+		return 
 
 	def __bookkeep(self, 
 		cur_inst_pc, 
@@ -411,48 +468,19 @@ class Scoreboard:
 			"""
 			pass
 
-		else:
+		elif cur_inst_stage == "write_result":
 			"""
 				~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 				Pipeline "Write Result" stage
 				~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 			"""
-			# For all functional units waiting for the
-			# current functional unit finalize for any of
-			# the operand register, set the ready flags to true
-			for loop_func_unit_label in self.func_unit_status:
-				for loop_replica_id in self.func_unit_status[loop_func_unit_label]:
-					loop_cur_func_unit = self.func_unit_status[loop_func_unit_label][loop_replica_id]
-
-					if loop_func_unit_label not in self.__to_commit_this_clock:
-						self.__to_commit_this_clock[loop_func_unit_label] = {}
-					if loop_replica_id not in self.__to_commit_this_clock[loop_func_unit_label]:
-						self.__to_commit_this_clock[loop_func_unit_label][loop_replica_id] = {
-							"fields" : {},
-							"registers" : {},
-						}
-
-					loop_cur_func_unit_aux = self.__to_commit_this_clock\
-						[loop_func_unit_label][loop_replica_id]["fields"]
-						
-					loop_cur_changed_field_set = set()
-
-					if len(loop_cur_func_unit["q_k"]) and\
-						loop_cur_func_unit["q_k"][-1] == (cur_inst_func_unit, cur_inst_replica_id):
-						loop_cur_func_unit_aux["r_k"] = True
-						loop_cur_changed_field_set.update({"r_k"})
-
-					if len(loop_cur_func_unit["q_j"]) and\
-						loop_cur_func_unit["q_j"][-1] == (cur_inst_func_unit, cur_inst_replica_id):
-						loop_cur_func_unit_aux["r_j"] = True
-						loop_cur_changed_field_set.update({"r_j"})
-
-					if loop_cur_changed_field_set:
-						loop_cur_func_unit_aux["update_timers"] = {\
-							"clock" : self.global_clock_timer,
-							"changed_fields" : loop_cur_changed_field_set,
-							"changed_registers" : set(),
-						}
+			# Update r_j and r_k flags of other functional
+			# units waiting for the current functional_unit
+			# destiny register
+			if self.PIPELINE_STAGES[-1] == "write_result":
+				self.__update_flags(\
+					cur_inst_func_unit, 
+					cur_inst_replica_id)
 
 			# Current functional unit current register
 			cur_inst_f_i = cur_func_unit_status["f_i"][-1]
@@ -465,6 +493,23 @@ class Scoreboard:
 
 			cur_func_unit_status_aux["busy"] = False
 			changed_field_set.update({"busy"})
+
+		else:
+			"""
+				~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+				Pipeline "Update Flags" stage
+				~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+				This stage was made to avoid deadlocks between
+				("read_operand", "write_result") pipeline stages
+				in the same clock cycle	between two instructions 
+				with a RAW dependency (i.e. the first instruction
+				write in a register and the second one reads from
+				the same register).
+			"""
+			self.__update_flags(\
+				cur_inst_func_unit,
+				cur_inst_replica_id)
 
 		# Mark the current clock cycle plus stage cost in the
 		# instruction status
@@ -587,6 +632,7 @@ class Scoreboard:
 
 		# Produce final output
 		ans = {
+			"pipeline_stages" : self.PIPELINE_STAGES,
 			"inst_status" : self.inst_status,
 			"func_unit_status" : self.func_unit_status,
 			"reg_dest_status" : self.reg_res_status,

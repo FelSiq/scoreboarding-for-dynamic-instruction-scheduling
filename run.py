@@ -10,25 +10,30 @@ if __name__ == "__main__":
 	if "--help" in sys.argv or "-h" in sys.argv or len(sys.argv) < 2:
 		print("usage:", sys.argv[0], 
 			"<source_code_filepath>",
-			"[--checkreg] [--nogui] [--complete] [--nocolor]\n",
+			"[--checkreg] [--nogui] [--complete] [--nocolor] [--noufstage]\n",
 			dedent("""
 			Where:
 			<source_code_filepath>: full filepath of MIPS assembly-like input file. 
 						Please check out "./test-cases/" subdirectory for input file format examples.
 
 			Optional flags:
-			--checkreg: 	accepts only registers declared in architecture defined in Configme.py module.
-			--nogui: 	disable graphical interface.
-			--complete: 	produce step-by-step output for Instruction, Functional Units and Register status tables.
-			--nocolor: 	produce all output with just standard terminal color. 
+			--checkreg	: accepts only registers declared in architecture defined in Configme.py module.
+			--nogui		: (no effect) disable graphical interface.
+			--complete	: produce step-by-step output for Instruction, Functional Units and Register status tables.
+			--nocolor	: produce all output with just standard terminal color. 
 					Makes sense only if used together with "--complete" flag.
+			--noufstage	: disable the "update_flags" pipeline stage, used to prevent deadlocks in RAW dependencies if two 
+					instructions in the ("write_result", "read_operands") pipeline stages pair matches in the same 
+					clock cycle. The functional unit flag updating will be done in the "write_result" pipeline stage 
+					instead.
 			"""))
 		exit(1)
 
 	checkreg = "--checkreg" in sys.argv
-	nogui = "--nogui" in sys.argv
+	nogui = "--nogui" in sys.argv or True # Graphical interface not implemented yet
 	full_output = "--complete" in sys.argv
 	colored_output = "--nocolor" not in sys.argv
+	update_flags_stage = "--noufstage" not in sys.argv
 
 	rf = ReadFile()
 
@@ -42,7 +47,7 @@ if __name__ == "__main__":
 		architecture, 
 		verify_reg=checkreg)
 
-	sc = Scoreboard()
+	sc = Scoreboard(update_flags_stage=update_flags_stage)
 
 	# Load architecture to the scoreboard module
 	sc.load_architecture(architecture)

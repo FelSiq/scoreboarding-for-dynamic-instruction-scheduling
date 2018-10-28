@@ -22,6 +22,9 @@ class TextualInterface:
 			"execution", "write_result"
 		]
 
+		if "update_flags" in ans["pipeline_stages"]:
+			self.__inst_print_order.append("update_flags")
+
 		# Get the maximum length of the instruction
 		# table status field labels declared above
 		# ("__inst_print_order")

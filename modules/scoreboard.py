@@ -37,8 +37,8 @@ class Scoreboard:
 		self.func_unit_status = None
 		self.reg_res_status = None
 		self.inst_status = None
-		self.word_size = 0
-		self.program_size = 0
+		self.WORD_SIZE = 0
+		self.PROGRAM_SIZE = 0
 		self.PIPELINE_STAGES = [
 			"issue", 
 			"read_operands", 
@@ -91,24 +91,24 @@ class Scoreboard:
 		self.functional_units = architecture["functional_units"]
 
 		# MIPS standard: 32 bits
-		self.word_size = architecture["word_size"]
+		self.WORD_SIZE = architecture["word_size"]
 
 	def load_instructions(self, instructions):
-		if self.word_size <= 0:
+		if self.WORD_SIZE <= 0:
 			raise UserWarning("Instruction size must be >= 1.",
 				"Use \"Scoreboard.load_architecture\"",
 				"to configure it correctly.")
 
 		# Identify the instructions by the PC
 		self.inst_status = {
-			(self.word_size * inst_id) : {
+			(self.WORD_SIZE * inst_id) : {
 				stage_label : None
 				for stage_label in self.PIPELINE_STAGES
 			} for inst_id in range(len(instructions))
 		}
 
-		# program_size = #_of_Instructions * word_size
-		self.program_size = max(self.inst_status) + self.word_size
+		# PROGRAM_SIZE = #_of_Instructions * WORD_SIZE
+		self.PROGRAM_SIZE = max(self.inst_status) + self.WORD_SIZE
 
 		# Keep pointer to instruction list
 		self.instruction_list = instructions
@@ -132,7 +132,7 @@ class Scoreboard:
 
 			# Method here ~~~~~
 			cur_inst_metadata = self.instruction_list[\
-				cur_inst_pc // self.word_size]
+				cur_inst_pc // self.WORD_SIZE]
 
 			cur_inst_func_unit = cur_inst_metadata["functional_unit"]
 
@@ -159,7 +159,7 @@ class Scoreboard:
 
 		# Extract some metadata from the current instruction
 		cur_inst_metadata = self.instruction_list[\
-			cur_inst_pc // self.word_size]
+			cur_inst_pc // self.WORD_SIZE]
 		cur_inst_label = cur_inst_metadata["label"]
 		cur_inst_func_unit = cur_inst_metadata["functional_unit"]
 
@@ -177,7 +177,7 @@ class Scoreboard:
 				cur_inst_reg_dest = cur_inst_metadata["reg_dest"]
 			else:
 				cur_inst_reg_dest = None
-			
+
 			# Check if destiny register (f_i) is not being produced
 			# by another functional unit
 			if cur_inst_reg_dest is None or not self.reg_res_status[cur_inst_reg_dest][-1]:
@@ -195,6 +195,7 @@ class Scoreboard:
 				Pipeline "Read Operands" stage
 				~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 			"""
+
 			if self.func_unit_status[cur_inst_func_unit]\
 				[cur_inst_replica_id]["r_j"][-1] and \
 				self.func_unit_status[cur_inst_func_unit]\
@@ -295,13 +296,11 @@ class Scoreboard:
 
 	def __bookkeep(self, 
 		cur_inst_pc, 
-		cur_inst_stage, 
-		cur_min_pc, 
-		cur_max_pc):
+		cur_inst_stage):
 
 		# Extract current instruction metadata
 		cur_inst_metadata = self.instruction_list[\
-			cur_inst_pc // self.word_size]
+			cur_inst_pc // self.WORD_SIZE]
 		cur_inst_label = cur_inst_metadata["label"]
 		cur_inst_func_unit = cur_inst_metadata["functional_unit"]
 
@@ -340,6 +339,7 @@ class Scoreboard:
 				"fields" : {},
 				"registers" : {},
 			}
+
 		cur_func_unit_status_aux = self.__to_commit_this_clock\
 			[cur_inst_func_unit][cur_inst_replica_id]["fields"]
 		cur_registers_status_aux = self.__to_commit_this_clock\
@@ -419,19 +419,19 @@ class Scoreboard:
 			# current functional unit finalize for any of
 			# the operand register, set the ready flags to true
 			for loop_func_unit_label in self.func_unit_status:
-				for replica_id in self.func_unit_status[loop_func_unit_label]:
-					loop_cur_func_unit = self.func_unit_status[loop_func_unit_label][replica_id]
+				for loop_replica_id in self.func_unit_status[loop_func_unit_label]:
+					loop_cur_func_unit = self.func_unit_status[loop_func_unit_label][loop_replica_id]
 
 					if loop_func_unit_label not in self.__to_commit_this_clock:
 						self.__to_commit_this_clock[loop_func_unit_label] = {}
-					if replica_id not in self.__to_commit_this_clock[loop_func_unit_label]:
-						self.__to_commit_this_clock[loop_func_unit_label][replica_id] = {\
+					if loop_replica_id not in self.__to_commit_this_clock[loop_func_unit_label]:
+						self.__to_commit_this_clock[loop_func_unit_label][loop_replica_id] = {
 							"fields" : {},
 							"registers" : {},
 						}
 
 					loop_cur_func_unit_aux = self.__to_commit_this_clock\
-						[loop_func_unit_label][replica_id]["fields"]
+						[loop_func_unit_label][loop_replica_id]["fields"]
 						
 					loop_cur_changed_field_set = set()
 
@@ -516,12 +516,12 @@ class Scoreboard:
 		# is clean
 		self.__to_commit_this_clock = {}
 
-		while cur_min_pc < self.program_size:
+		while cur_min_pc < self.PROGRAM_SIZE:
 			self.global_clock_timer += 1
 
 			# For each instruction between the not completed
 			# former and the most recently one dispatched...
-			for cur_inst_pc in range(cur_min_pc, cur_max_pc + self.word_size, self.word_size):
+			for cur_inst_pc in range(cur_min_pc, cur_max_pc + self.WORD_SIZE, self.WORD_SIZE):
 				# Check the wait conditions of the current stage
 				# of the current instruction
 				if self.inst_status[cur_inst_pc][LAST_PIPELINE_STAGE] is None:
@@ -535,9 +535,7 @@ class Scoreboard:
 					if self.__check_inst_ready(cur_inst_pc, cur_inst_stage):
 						new_inst_stage = self.__bookkeep(\
 								cur_inst_pc, 
-								cur_inst_stage,
-								cur_min_pc, 
-								cur_max_pc)
+								cur_inst_stage)
 
 						# Update current instruction new pipeline stage
 						if new_inst_stage:
@@ -545,13 +543,15 @@ class Scoreboard:
 						else:
 							inst_cur_stage.pop(cur_inst_pc)
 
-						if inst_cur_stage:
-							cur_min_pc = min(inst_cur_stage)
-							cur_max_pc = min(self.program_size - self.word_size, \
-								max(cur_inst_pc + self.word_size, \
-								max(inst_cur_stage)))
-						else:
-							cur_min_pc = cur_max_pc = self.program_size
+			# Update PC interval
+			if inst_cur_stage:
+				cur_min_pc = min(inst_cur_stage)
+				cur_max_pc = max(inst_cur_stage)
+				if cur_max_pc + self.WORD_SIZE < self.PROGRAM_SIZE and\
+					inst_cur_stage[cur_max_pc] != FIRST_PIPELINE_STAGE:
+					cur_max_pc += self.WORD_SIZE
+			else:
+				cur_min_pc = cur_max_pc = self.PROGRAM_SIZE
 
 			# Commit all changes made in the current clock
 			if self.__to_commit_this_clock:
@@ -575,6 +575,7 @@ class Scoreboard:
 
 						# Do register changes
 						cur_f_u_reg_changes = cur_func_unit_changes["registers"]
+
 						for register_label in cur_f_u_reg_changes:
 							self.reg_res_status[register_label].append(\
 								cur_f_u_reg_changes[register_label])

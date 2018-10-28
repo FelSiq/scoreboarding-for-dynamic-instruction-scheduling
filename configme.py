@@ -183,5 +183,5 @@ class Config:
 		only registers previously declared here.
 	"""
 	architecture_register_set = {
-		"$" + str(i) for i in range(1, 32)
+		"$" + str(i) for i in range(32)
 	}.union({"$f" + str(i) for i in range(32)})

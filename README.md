@@ -100,7 +100,7 @@ This program supports almost any MIPS non-branch instructions (neither condition
 | Yes		| I	| Store Word 			| instruction\_label operand\_reg\_b, \[+-\]immediate\_value(operand\_reg\_a)	|
 | \*No		| I	| Binary Conditional Branch	| instruction\_label operand\_reg\_a, operand\_reg\_b, jump\_label		|
 | \*No		| I	| Unary Conditional Branch 	| instruction\_label operand\_reg, jump\_label					|
-| No		| J	| Conditional Branch		| instruction\_label jump\_label						|
+| No		| J	| Unconditional Branch		| instruction\_label jump\_label						|
 
 \*You may still use conditional branches in the input code, but they will have no "branching effect" (i.e. the PC will not be moved), so they will be executed just like any other generic instruction.
 
@@ -118,10 +118,10 @@ Inside "configme.py" module you can find a class named "Config" which keeps ever
 
 | Field					| Python data type	| Description									|
 | ------------------------------------- | --------------------- | -----------------------------------------------------------------------------	|
-| functional\_units 			| Dict			| Specify available functional units, replicas quantity and clock delay		|
+| functional\_units 			| Dict			| Specify available functional units, replicas quantity and clock delay of every functional unit		|
 | instruction\_list 			| Dict			| List all supported instructions alongside its type and used functional unit	|
 | store\_instruction\_set 		| Set			| List instructions that access primary memory to **store** (not *read*) words	|
-| stage\_delay 				| Dict			| Clock delay for pipeline stages other than "execution" (which uses Func Units)|
+| stage\_delay 				| Dict			| Clock delay for pipeline stages other than "execution" (which uses functional units)|
 | custom\_inst\_additional\_delay 	| Dict			| Add additional delay for specify instructions (e.g. Load/Store operations)	|
 | WORD\_SIZE 				| int			| Specify, in Bytes, the size of a single word of the architecture		|
 | architecture\_register\_set 		| Set			| Specify all available registers in the architecture.				|

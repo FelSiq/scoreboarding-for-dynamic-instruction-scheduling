@@ -139,6 +139,7 @@ class TextualInterface:
 		reg_index_holder,
 		func_unit_label, 
 		replica_id,
+		this_clock_updated_regs,
 		clock):
 		"""
 			This method synchronize the counters of each
@@ -167,6 +168,7 @@ class TextualInterface:
 
 			for changed_reg_label in cur_update_timers[func_unit_print_index]["changed_registers"]:
 				reg_index_holder[changed_reg_label] += 1
+				this_clock_updated_regs.update({changed_reg_label})
 
 		return func_unit_print_index
 
@@ -199,7 +201,7 @@ class TextualInterface:
 		reg_index_holder,
 		colored=True):
 
-		reg_labels_to_update = set()
+		this_clock_updated_regs = set()
 
 		"""
 			~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -243,6 +245,7 @@ class TextualInterface:
 					reg_index_holder,
 					func_unit_label,
 					replica_id,
+					this_clock_updated_regs,
 					clock)
 
 				# Functional unit name concatenated with its
@@ -266,7 +269,8 @@ class TextualInterface:
 
 					if colored:
 						color = Fore.GREEN if \
-							(table_label in cur_update_timers[func_unit_print_index]["changed_fields"] and \
+							(table_label in cur_update_timers\
+								[func_unit_print_index]["changed_fields"] and \
 							cur_update_timers[func_unit_print_index]["clock"] == clock)\
 							else Fore.RED
 					else:
@@ -289,12 +293,13 @@ class TextualInterface:
 		"""
 		print(self.__FU_HORIZ_LINE)
 
-		return reg_labels_to_update
+		return this_clock_updated_regs
 
 	def __reg_dest_table(self, 
 		reg_dest_status, 
 		clock, 
 		index_holder,
+		this_clock_updated_regs,
 		colored=True):
 
 		for reg_label in reg_dest_status:
@@ -302,7 +307,9 @@ class TextualInterface:
 				print_index = index_holder[reg_label]
 
 				if colored:
-					color = Fore.GREEN if ... else Fore.RED
+					color = Fore.GREEN \
+						if reg_label in this_clock_updated_regs\
+						else Fore.RED
 				else:
 					color = ""
 
@@ -371,7 +378,7 @@ class TextualInterface:
 				Functional Unit status table
 			"""
 			print("\n", item_symbol, "Functional Unit status table:")
-			self.__func_unit_table(ans["func_unit_status"], 
+			this_clock_updated_regs = self.__func_unit_table(ans["func_unit_status"], 
 				clock, 
 				index_holder["fields"], 
 				index_holder["registers"], 
@@ -384,6 +391,7 @@ class TextualInterface:
 			self.__reg_dest_table(ans["reg_dest_status"], 
 				clock, 
 				index_holder["registers"], 
+				this_clock_updated_regs,
 				colored and clock != final_clock_val)
 
 	def print_answer(self, 

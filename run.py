@@ -7,11 +7,15 @@ if __name__ == "__main__":
 	import sys
 
 	if len(sys.argv) < 2:
-		print("usage:", sys.argv[0], "<source_code_filepath> [-checkreg] [-nogui]")
+		print("usage:", sys.argv[0], 
+			"<source_code_filepath>",
+			"[-checkreg] [-nogui] [-complete] [-nocolor]")
 		exit(1)
 
 	checkreg = "-checkreg" in sys.argv
 	nogui = "-nogui" in sys.argv
+	full_output = "-complete" in sys.argv
+	colored_output = "-nocolor" not in sys.argv
 
 	rf = ReadFile()
 
@@ -37,4 +41,6 @@ if __name__ == "__main__":
 	
 	if nogui:
 		ti = TextualInterface(ans)
-		ti.print_answer(ans)
+		ti.print_answer(ans, 
+			full=full_output, 
+			colored=colored_output)

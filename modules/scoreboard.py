@@ -68,7 +68,7 @@ class Scoreboard:
 			func_unit : {
 				func_unit_counter : {
 					"busy" : [False], 
-					"op": [-1],
+					"op": [None],
 					"f_i": [None],
 					"f_j": [None],
 					"f_k": [None],
@@ -131,36 +131,46 @@ class Scoreboard:
 				return replica_id
 		return -1
 
+	def __inst_total_cost(self, cur_inst_pc, cur_inst_stage):
+		"""
+			Calculate total cost (in clock cycles)
+			of a given instruction identified by its
+			PC.
+		"""
+		total_cost = 0
+
+		cur_inst_metadata = self.instruction_list[\
+			cur_inst_pc // self.WORD_SIZE]
+
+		cur_inst_func_unit = cur_inst_metadata["functional_unit"]
+
+		if cur_inst_stage == "execution":
+			total_cost += self.functional_units[cur_inst_func_unit]["clock_cycles"]
+
+		if cur_inst_stage in self.stage_delay:
+			total_cost += self.stage_delay[cur_inst_stage]
+
+		if "additional_cost" in cur_inst_metadata:
+			total_cost += cur_inst_metadata["additional_cost"]
+
+		total_cost += self.inst_status[cur_inst_pc]\
+			[self.PIPELINE_STAGES[self.PIPELINE_STAGES.\
+				index(cur_inst_stage) - 1]]
+
+		return total_cost
+
 	def __check_inst_ready(self, cur_inst_pc, cur_inst_stage):
 		# Take into account scoreboarding wait tests +
 		# clock costs and global clock counter
 
 		if cur_inst_stage != "issue":
-			total_cost = 0
-
-			# Method here ~~~~~
-			cur_inst_metadata = self.instruction_list[\
-				cur_inst_pc // self.WORD_SIZE]
-
-			cur_inst_func_unit = cur_inst_metadata["functional_unit"]
-
-			if cur_inst_stage == "execution":
-				total_cost += self.functional_units[cur_inst_func_unit]["clock_cycles"]
-
-			if cur_inst_stage in self.stage_delay:
-				total_cost += self.stage_delay[cur_inst_stage]
-
-			if "additional_cost" in cur_inst_metadata:
-				total_cost += cur_inst_metadata["additional_cost"]
-			# Method here ~~~~~
-
-			cur_inst_stage_cost = total_cost + self.inst_status[cur_inst_pc]\
-				[self.PIPELINE_STAGES[self.PIPELINE_STAGES.index(cur_inst_stage) - 1]]
+			inst_total_cost = self.__inst_total_cost(\
+				cur_inst_pc,
+				cur_inst_stage)
 
 			# Check if current global clock counter already
 			# satisfies current instruction pipeline stage cost
-
-			if cur_inst_stage_cost > self.global_clock_timer:
+			if inst_total_cost > self.global_clock_timer:
 				# Pipeline stage of this instruction not
 				# ready yet, return False
 				return False
@@ -532,6 +542,36 @@ class Scoreboard:
 				self.PIPELINE_STAGES.index(cur_inst_stage)]
 		return None
 
+	def __commit_changes(self):
+		if self.__to_commit_this_clock:
+			# Keep track of which clock cycles correspond
+			# to a change in the scoreboard structure to
+			# made user interface easier to implement
+			self.update_timers.append(self.global_clock_timer)
+
+			for func_unit_label in self.__to_commit_this_clock:
+				for replica_id in self.__to_commit_this_clock[func_unit_label]:
+					cur_func_unit_changes = \
+						self.__to_commit_this_clock[func_unit_label][replica_id]
+					cur_func_unit_status = \
+						self.func_unit_status[func_unit_label][replica_id]
+
+					# Do fields changes
+					cur_f_u_field_changes = cur_func_unit_changes["fields"]
+					for field in cur_f_u_field_changes:
+						cur_func_unit_status[field].append(\
+							cur_f_u_field_changes[field])
+
+					# Do register changes
+					cur_f_u_reg_changes = cur_func_unit_changes["registers"]
+
+					for register_label in cur_f_u_reg_changes:
+						self.reg_res_status[register_label].append(\
+							cur_f_u_reg_changes[register_label])
+
+		# Clean up all changes
+		self.__to_commit_this_clock = {}
+
 	def run(self):
 		# Check if user called "load_architecture" method before
 		if self.func_unit_status is None or \
@@ -601,34 +641,7 @@ class Scoreboard:
 				cur_min_pc = cur_max_pc = self.PROGRAM_SIZE
 
 			# Commit all changes made in the current clock
-			if self.__to_commit_this_clock:
-				# Keep track of which clock cycles correspond
-				# to a change in the scoreboard structure to
-				# made user interface easier to implement
-				self.update_timers.append(self.global_clock_timer)
-
-				for func_unit_label in self.__to_commit_this_clock:
-					for replica_id in self.__to_commit_this_clock[func_unit_label]:
-						cur_func_unit_changes = \
-							self.__to_commit_this_clock[func_unit_label][replica_id]
-						cur_func_unit_status = \
-							self.func_unit_status[func_unit_label][replica_id]
-
-						# Do fields changes
-						cur_f_u_field_changes = cur_func_unit_changes["fields"]
-						for field in cur_f_u_field_changes:
-							cur_func_unit_status[field].append(\
-								cur_f_u_field_changes[field])
-
-						# Do register changes
-						cur_f_u_reg_changes = cur_func_unit_changes["registers"]
-
-						for register_label in cur_f_u_reg_changes:
-							self.reg_res_status[register_label].append(\
-								cur_f_u_reg_changes[register_label])
-
-			# Clean up all changes
-			self.__to_commit_this_clock = {}
+			self.__commit_changes()
 
 		# Produce final output
 		ans = {

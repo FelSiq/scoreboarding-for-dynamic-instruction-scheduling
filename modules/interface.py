@@ -119,12 +119,14 @@ class TextualInterface:
 				val=inst_status[pc][self.__inst_print_order[stage_id]]
 				if colored:
 					color = Fore.RED if clock != val else Fore.GREEN
+					color_reseter = Style.RESET_ALL
 				else:
 					color = ""
+					color_reseter = ""
 
 				print(color + \
 					"{:^{fill}}".format(val if val <= clock else "", 
-					fill=self.__inst_fill_len) + Style.RESET_ALL, end="|")
+					fill=self.__inst_fill_len) + color_reseter, end="|")
 			print()
 		"""
 			~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -275,8 +277,10 @@ class TextualInterface:
 								[func_unit_print_index]["changed_fields"] and \
 							cur_update_timers[func_unit_print_index]["clock"] == clock)\
 							else Fore.RED
+						color_reseter = Style.RESET_ALL
 					else:
 						color = ""
+						color_reseter = ""
 					"""
 						~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 						END OF current functional unit field status preparation
@@ -286,7 +290,7 @@ class TextualInterface:
 					print(color + \
 						"{:^{fill}}".format(val if val else " ", 
 						fill=self.__fu_fill_custom_spacing[table_label]) +\
-						Style.RESET_ALL, end="|")
+						color_reseter, end="|")
 				print()
 		"""
 			~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -312,12 +316,14 @@ class TextualInterface:
 					color = Fore.GREEN \
 						if reg_label in this_clock_updated_regs\
 						else Fore.RED
+					color_reseter = Style.RESET_ALL
 				else:
 					color = ""
+					color_reseter = ""
 
 				print(reg_label, ": [", color +\
 					self.__prepare_value(reg_dest_status[reg_label][print_index]) +\
-					Style.RESET_ALL, "]", end=" ")
+					color_reseter, "]", end=" ")
 
 		if self.__ommited_reg_count > 0:
 			print("[...] (More", 

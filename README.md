@@ -50,7 +50,7 @@ Just like in the built-in help system:
 | Flag          | Description														|
 | ------------- | --------------------------------------------------------------------------------------------------------------------- |
 |--checkreg	| accepts only registers declared in architecture defined in Configme.py module.					|
-|--nogui	| disable graphical interface.												|
+|--nogui	| (currently useless) disable graphical interface.									|
 |--complete:	| produce step-by-step output for Instruction, Functional Units and Register status tables.				|
 |--nocolor:	| produce all output with just standard terminal color. Makes sense only if used together with "--complete" flag.	|
 |--noufstage:	| disable the "update\_flags" pipeline stage, used to prevent deadlocks in RAW dependencies if two instructions in the ("write\_result", "read\_operands") pipeline stages pair matches in the same clock cycle while the first one write in a register and the second one read from it. If this flag is enabled, the functional unit flag updating  will be done in the "write\_result" pipeline stage instead.|

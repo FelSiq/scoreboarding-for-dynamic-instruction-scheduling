@@ -1,5 +1,6 @@
+# Case test #1
 LW $2, 0($4)
-ADDI $2, $2, 10
+ADDI $2, $2, 10 # MIPS standard type "I" (common variant) instruction format
 LW $3, 4($4)
 ADDI $3, $3, 20
 ADD $5, $2, $3

@@ -59,8 +59,9 @@ Just like in the built-in help system:
 ## Command line arguments
 <a name="Command-line-arguments"></a>
 User may specify the following optional arguments:
+
 | Argument 	| Type			| Description 											|
-| ------------- | --------------------- |---------------------------------------------------------------------------------------------- |
+| ------------- | --------------------- | --------------------------------------------------------------------------------------------- |
 |--clockstep	| Positive integer	| specify how many clock cycles must be shown each iteration. If ommited, then all cycles will be printed by default. This argument only makes sense if used together with "--complete" flag. |
 
 ## Input file format

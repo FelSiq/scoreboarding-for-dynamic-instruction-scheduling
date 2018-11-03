@@ -10,8 +10,9 @@ Note that both techniques may execute instructions out-of-order (whenever false 
 1. [Usage](#Usage)
     1. [How to run](#How-to-run)
     2. [Command line Flags](#Command-line-flags)
-    3. [Input file format](#Input-file-format)
-    4. [Supported instructions](#Supported-instructions)
+    3. [Command line Arguments](#Command-line-arguments)
+    4. [Input file format](#Input-file-format)
+    5. [Supported instructions](#Supported-instructions)
 2. [Configuration](#Configuration)
     1. [The Configme.py Module](#The-configme-module)
     2. [Configurable fields](#Configurable-fields)
@@ -54,6 +55,13 @@ Just like in the built-in help system:
 |--complete:	| produce step-by-step output for Instruction, Functional Units and Register status tables.				|
 |--nocolor:	| produce all output with just standard terminal color. Makes sense only if used together with "--complete" flag.	|
 |--noufstage:	| disable the "update\_flags" pipeline stage, used to prevent deadlocks in RAW dependencies if two instructions in the ("write\_result", "read\_operands") pipeline stages pair matches in the same clock cycle while the first one write in a register and the second one read from it. If this flag is enabled, the functional unit flag updating  will be done in the "write\_result" pipeline stage instead.|
+
+## Command line arguments
+<a name="Command-line-arguments"></a>
+User may specify the following optional arguments:
+| Argument 	| Type			| Description 											|
+| ------------- | --------------------- |---------------------------------------------------------------------------------------------- |
+|--clockstep	| Positive integer	| specify how many clock cycles must be shown each iteration. If ommited, then all cycles will be printed by default. This argument only makes sense if used together with "--complete" flag. |
 
 ## Input file format
 <a name="Input-file-format"></a>

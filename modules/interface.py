@@ -334,6 +334,7 @@ class TextualInterface:
 
 	def __full_output(self,
 		ans, 
+		clock_steps=-1,
 		decorate="~", 
 		item_symbol="->", 
 		quantity=100,
@@ -366,11 +367,15 @@ class TextualInterface:
 			}
 		}
 
-		final_clock_val = ans["update_timers"][-1] + 1
+		prompt_counter = clock_steps + 1
+		state_counter = -1
 
-		for clock in sorted(ans["update_timers"] + [final_clock_val]):
-			print(sep_line, ("Clock timer = " + str(clock))\
-				if clock != final_clock_val \
+		FINAL_CLOCK_VAL = ans["update_timers"][-1] + 1
+
+		for clock in sorted(ans["update_timers"] + [FINAL_CLOCK_VAL]):
+			print(sep_line, ("State for clock cycle " + str(clock) +\
+					" of " + str(FINAL_CLOCK_VAL - 1) + " total")\
+				if clock != FINAL_CLOCK_VAL \
 				else "Final state", 
 				sep_line, sep="\n")
 			"""
@@ -380,7 +385,7 @@ class TextualInterface:
 			self.__inst_status_table(
 				ans["inst_status"], 
 				clock, 
-				colored and clock != final_clock_val)
+				colored and clock != FINAL_CLOCK_VAL)
 
 			"""
 				Functional Unit status table
@@ -390,7 +395,7 @@ class TextualInterface:
 				clock, 
 				index_holder["fields"], 
 				index_holder["registers"], 
-				colored and clock != final_clock_val)
+				colored and clock != FINAL_CLOCK_VAL)
 
 			"""
 				Destiny Register status table
@@ -400,10 +405,22 @@ class TextualInterface:
 				clock, 
 				index_holder["registers"], 
 				this_clock_updated_regs,
-				colored and clock != final_clock_val)
+				colored and clock != FINAL_CLOCK_VAL)
+
+			# Interrupt process if user specify a positive
+			# number of clock cycles to be printed each
+			# time
+			prompt_counter -= 1
+			state_counter += 1
+			if clock_steps > 0 and prompt_counter == 0:
+				prompt_counter = clock_steps
+				input("\nPlease press ENTER key to continue..." +\
+					" (more " + str(len(ans["update_timers"]) -\
+					state_counter) + " states remaining)\n")
 
 	def print_answer(self, 
 		ans, 
+		clock_steps=-1,
 		decorate="~", 
 		item_symbol="->", 
 		quantity=-1,
@@ -416,6 +433,7 @@ class TextualInterface:
 		if full:
 			self.__full_output(
 				ans, 
+				clock_steps,
 				decorate, 
 				item_symbol, 
 				quantity,

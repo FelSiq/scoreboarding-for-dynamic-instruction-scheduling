@@ -31,10 +31,10 @@ Tested with Python 3.5.2 version.
 This script uses the following Python 3 package, which can be obtained via pip (for python 3.x):
 ```
 	# Use this if your pip is connected to python 2
-	pip3 install <package\_name>.
+	pip3 install <package_name>
 
 	# Else, just use pip without the "3"
-	pip install <package\_name>.
+	pip install <package_name>
 ```
 
 Currently needed packages:

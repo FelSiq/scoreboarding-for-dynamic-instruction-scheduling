@@ -27,8 +27,11 @@ if __name__ == "__main__":
 					the same clock cycle while the first one write in a register and the second one read from it. 
 					If this flag is enabled, the functional unit flag updating  will be done in the "write_result" 
 					pipeline stage instead.
-			--clockstep	: specify how many clock cycles must be shown each iteration. If ommited, then all cycles will
-					be printed by default. This argument only makes sense if used together with "--complete" flag.
+
+			Optional arguments:
+			--clockstep	: (positive integer) specify how many clock cycles must be shown each iteration. If ommited, 
+					then all cycles will be printed by default. This argument only makes sense if used together 
+					with "--complete" flag.
 			"""))
 		exit(1)
 

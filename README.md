@@ -28,7 +28,16 @@ Tested with Python 3.5.2 version.
 
 ## Used packages
 <a name="Used-packages"></a>
-This script uses the following Python 3 package, which can be obtained via pip3 (pip3 install package\_name).
+This script uses the following Python 3 package, which can be obtained via pip (for python 3.x):
+```
+	# Use this if your pip is connected to python 2
+	pip3 install <package\_name>.
+
+	# Else, just use pip without the "3"
+	pip install <package\_name>.
+```
+
+Currently needed packages:
 - colorama
 
 # Usage
@@ -38,11 +47,16 @@ This script uses the following Python 3 package, which can be obtained via pip3 
 <a name="How-to-run"></a>
 The basic program usage is defined as follows:
 ```
-python3 run.py <source_code_filepath> [flags]
+	# Remember that python 3.x is required!
+	python run.py <source_code_filepath> [flags] [optional arguments]
+
+	# Check your python version with:
+	python --version
 ```
 Where:
 - **source**\_**code**\_**filepath:** input filepath for a pseudo-MIPS assembly code. The format demanded by the input source code is explained [here](#Input-file-format) and information about supported MIPS instructions you may found [here](#Supported-instructions).
 - **flags:** program flags are explained in deeper details [here](#Command-line-flags). You may check out the program built-in help system using the flag "-help" or just running the program without specifying the "source\_code\_filepath" program argument.
+- **optional arguments:** check out program optional arguments [here](#Command-line-arguments).
 
 ## Command line flags
 <a name="Command-line-flags"></a>
@@ -178,13 +192,13 @@ PC :    issue     |read_operands |  execution   | write_result |
 Functional unit :  busy |  op  | f_i  | f_j  | f_k  |      q_j       |      q_k       | r_j  | r_k  |
 -----------------------------------------------------------------------------------------------------
 load_store_0    :  True |  20  |  -   |  -   |  -   |       0        | integer_alu_1  | True |False |
-load_store_1    : False |  -1  |  -   |  -   |  -   |       -        |       -        | True | True |
+load_store_1    : False |  -   |  -   |  -   |  -   |       -        |       -        | True | True |
 integer_alu_0   : False |  12  |  $3  |  $3  |  -   |       0        |       0        |False |False |
 integer_alu_1   :  True |  16  |  $5  |  $2  |  $3  |       0        |       0        |False |False |
-float_mult_0    : False |  -1  |  -   |  -   |  -   |       -        |       -        | True | True |
-float_mult_1    : False |  -1  |  -   |  -   |  -   |       -        |       -        | True | True |
-float_div_0     : False |  -1  |  -   |  -   |  -   |       -        |       -        | True | True |
-float_add_sub_0 : False |  -1  |  -   |  -   |  -   |       -        |       -        | True | True |
+float_mult_0    : False |  -   |  -   |  -   |  -   |       -        |       -        | True | True |
+float_mult_1    : False |  -   |  -   |  -   |  -   |       -        |       -        | True | True |
+float_div_0     : False |  -   |  -   |  -   |  -   |       -        |       -        | True | True |
+float_add_sub_0 : False |  -   |  -   |  -   |  -   |       -        |       -        | True | True |
 -----------------------------------------------------------------------------------------------------
 
  -> Destiny Register status table:

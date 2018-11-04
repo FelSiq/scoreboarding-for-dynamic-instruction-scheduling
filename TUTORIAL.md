@@ -14,8 +14,8 @@ Please check out the README file for deeper details about anything in this tutor
 <a name="configme-module"></a>
 The first thing you need is to configure the computer architecture that you want to simulate. All configurable aspects supported by this program are, with no exception, inside the "Configme.py" module. You may use any text editor to do the job.
 
-There are **seven** fields that will need to check out in order to everything work as you expect. If needed, use your text editor search system and search exactly the field name I will list immediately below to find each field.
-1. **functional**\_**units:** python dictionary that holds every functional unit of the computer architecture. The keys are the functional unit identifier, and the values are dictionary containing both "quantity" (the number of replicas of that functional unit) and "clock_cycles" (the total clock delay necessary to a single execution in that functional unit). Has five types of functional units for different purposes, and a total of seven replicas. You can give any name to your functional unit, and any positive integer quantity and clock cycles cost.
+There are **seven** fields that we will need to check out in order to everything work as you expect. If needed, use your text editor search system and search exactly the field names I will list immediately below to easily find each field.
+1. **functional**\_**units:** python dictionary that holds every functional unit of the computer architecture. The keys are the functional unit identifier, and the values are dictionary containing both "quantity" (the number of replicas of that functional unit) and "clock_cycles" (the total clock delay necessary to a single execution in that functional unit). The default configuration, as you may see immediately below, has five types of functional units for different purposes, and a total of seven replicas. You can give any name to your functional unit, and any **positive integer** quantity and clock cycle costs.
 ```
         functional_units = {
                 "integer_alu" : {"quantity" : 1, "clock_cycles" : 1},
@@ -25,7 +25,7 @@ There are **seven** fields that will need to check out in order to everything wo
                 "float_div" : {"quantity" : 1, "clock_cycles" : 40},
         }
 ```
-2. **instruction**\_**list:** here you must list all instructions used in your input files, alongside thet functional unit they use and its instruction type. Remember that the instruction type must be either "R" or "I" (with CAPITAL LETTER). "J" instructions are not supported, so the use of then leads to undefined behavior. Use the predefined instructions to learn the correct instruction specification format.
+2. **instruction**\_**list:** here you must list all instructions used in your input files (as we will see in the next step), alongside the correspondent functional unit they use (remembering that the used functional units must be declared in the previous field) and it's correspondent instruction type. Remember that the instruction type must be either "R" or "I" (with CAPITAL LETTER). "J" instructions are not supported, so the use of then leads to undefined behavior. Use the predefined instructions (some examples are given below) as models to learn the correct instruction specification format.
 
 ```
         instruction_list = {
@@ -45,10 +45,12 @@ There are **seven** fields that will need to check out in order to everything wo
                 },
 		
 		# (...) Much more instructions defined!
+		# Check out inside Configme.py module to
+		# see more.
 	}
 ```
 
-3. **store**\_**instruction**\_**set:** here you must specify all instructions that access the primary memory for **STORE PURPOSE ONLY** (i.e. all type of "load word" operations). This is due to the fact that is impossible to differentiate a Store Word and Load Word operation using MIPS instruction format assembly with a generic method, as they looks exactly the same but the semathics behind are completely different.
+3. **store**\_**instruction**\_**set:** here you must specify all instructions that access the primary memory for **STORE PURPOSE ONLY** (i.e. all type of "store word" operations). This is due to the fact that is impossible to differentiate a Store Word and Load Word operation using MIPS instruction format assembly with a generic method, as they looks exactly the same but the semathics behind are completely different.
 ```
 	# DON'T put Load Word operations here!!!
 	store_instruction_set = {"SW"}
@@ -63,7 +65,7 @@ There are **seven** fields that will need to check out in order to everything wo
         }
 ```
 
-5. **custom\_**inst**\_**additional\_**delay:** this special field let you apply **additional** delay to specific instructions for its pipeline execution stage. For example, if you want your LW ("Load Word") instruction to have an additional cost of 2 clock cycles, even if it uses the same functional unit of, say, SW ("Store Word") instruction, then you can just input a entry in this field just like seen below in order to guarantee that behavior during program execution.
+5. **custom**\_**inst**\_**additional\_**delay:** this special field let you apply **additional** delay to specific instructions for its pipeline execution stage. For example, if you want your LW ("Load Word") instruction to have an additional cost of 2 clock cycles, even if it uses the same functional unit of, say, SW ("Store Word") instruction, then you can just input a entry in this field just like seen below in order to guarantee that behavior during program execution.
 ```
 	# All LW instructions will cost functional_unit_cost(LW) + 2 clock cycles to complete its execution pipeline stage phase.
         custom_inst_additional_delay = {

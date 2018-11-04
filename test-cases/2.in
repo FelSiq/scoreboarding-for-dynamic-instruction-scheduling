@@ -1,0 +1,7 @@
+LW $1, 0($sp)
+LW $2, 4($sp)
+ADDI $1, $1, 4
+SUB $3, $1, $2
+SW $3, 0($sp)
+SW $1, 4($sp)
+BEQ # Will not be taken! (never!)

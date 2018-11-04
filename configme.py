@@ -44,7 +44,7 @@ class Config:
 	"""
 
 	functional_units = {
-		"integer_alu" : {"quantity" : 2, "clock_cycles" : 1},
+		"integer_alu" : {"quantity" : 1, "clock_cycles" : 1},
 		"load_store" : {"quantity" : 2, "clock_cycles" : 2},
 		"float_add_sub" : {"quantity" : 1, "clock_cycles" : 2},
 		"float_mult" : {"quantity" : 2, "clock_cycles" : 10},
@@ -123,6 +123,16 @@ class Config:
 		"ADD" : {
 			"functional_unit" : "integer_alu",
 			"instruction_type" : "R",
+		},
+
+		"SUB" : {
+			"functional_unit" : "integer_alu",
+			"instruction_type" : "R",
+		},
+
+		"BEQ" : {
+			"functional_unit" : "integer_alu",
+			"instruction_type" : "I",
 		},
 	}
 

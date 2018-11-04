@@ -4,4 +4,4 @@ ADDI $1, $1, 4
 SUB $3, $1, $2
 SW $3, 0($sp)
 SW $1, 4($sp)
-BEQ # Will not be taken! (never!)
+BEQ $1, $2, -48 # Will not be taken! (never!)

@@ -367,7 +367,7 @@ class TextualInterface:
 			}
 		}
 
-		prompt_counter = clock_steps + 1
+		prompt_counter = clock_steps
 		state_counter = -1
 
 		FINAL_CLOCK_VAL = ans["update_timers"][-1] + 1

@@ -146,12 +146,11 @@ class Scoreboard:
 
 		if cur_inst_stage == "execution":
 			total_cost += self.functional_units[cur_inst_func_unit]["clock_cycles"]
+			if "additional_cost" in cur_inst_metadata:
+				total_cost += cur_inst_metadata["additional_cost"]
 
 		if cur_inst_stage in self.stage_delay:
 			total_cost += self.stage_delay[cur_inst_stage]
-
-		if "additional_cost" in cur_inst_metadata:
-			total_cost += cur_inst_metadata["additional_cost"]
 
 		total_cost += self.inst_status[cur_inst_pc]\
 			[self.PIPELINE_STAGES[self.PIPELINE_STAGES.\

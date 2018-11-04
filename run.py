@@ -29,7 +29,7 @@ if __name__ == "__main__":
 					pipeline stage instead.
 
 			Optional arguments:
-			--clockstep	: (positive integer) specify how many clock cycles must be shown each iteration. If ommited, 
+			--clockstep	: (positive integer) specify how many clock cycles must be shown each iteration. If omitted, 
 					then all cycles will be printed by default. This argument only makes sense if used together 
 					with "--complete" flag.
 			"""))

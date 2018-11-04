@@ -76,7 +76,7 @@ User may specify the following optional arguments:
 
 | Argument 	| Type			| Description 											|
 | ------------- | --------------------- | --------------------------------------------------------------------------------------------- |
-|--clockstep	| Positive integer	| specify how many clock cycles must be shown each iteration. If ommited, then all cycles will be printed by default. This argument only makes sense if used together with "--complete" flag. |
+|--clockstep	| Positive integer	| specify how many clock cycles must be shown each iteration. If omitted, then all cycles will be printed by default. This argument only makes sense if used together with "--complete" flag. |
 
 ## Input file format
 <a name="Input-file-format"></a>
@@ -202,5 +202,5 @@ float_add_sub_0 : False |  -   |  -   |  -   |  -   |       -        |       -  
 -----------------------------------------------------------------------------------------------------
 
  -> Destiny Register status table:
-$2 : [ 0 ] $4 : [ 0 ] $5 : [ integer_alu_1 ] $3 : [ 0 ] [...] (More 60 ommited registers)
+$2 : [ 0 ] $4 : [ 0 ] $5 : [ integer_alu_1 ] $3 : [ 0 ] [...] (More 60 omitted registers)
 ```

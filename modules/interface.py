@@ -72,7 +72,7 @@ class TextualInterface:
 		# Count how many registers are not used ever
 		# using the given instruction input code
 		# sequence (no need to print then)
-		self.__ommited_reg_count = sum([
+		self.__omitted_reg_count = sum([
 			len(reg_status[reg_label]) <= 1
 			for reg_label in reg_status
 		])
@@ -325,10 +325,10 @@ class TextualInterface:
 					self.__prepare_value(reg_dest_status[reg_label][print_index]) +\
 					color_reseter, "]", end=" ")
 
-		if self.__ommited_reg_count > 0:
+		if self.__omitted_reg_count > 0:
 			print("[...] (More", 
-				self.__ommited_reg_count, 
-				"ommited registers)", 
+				self.__omitted_reg_count, 
+				"omitted registers)", 
 				end="")
 		print()
 
